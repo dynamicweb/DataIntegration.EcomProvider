@@ -166,13 +166,12 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                         table.AddColumn(new SqlColumn(("VariantGroups"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                         table.AddColumn(new SqlColumn(("VariantOptions"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                         table.AddColumn(new SqlColumn(("RelatedProducts"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                        var fields = new List<Dynamicweb.Ecommerce.Products.Categories.Field>();
-                        var defaultLanguageId = Dynamicweb.Ecommerce.Services.Languages.GetDefaultLanguageId();                        
-                        foreach (var category in Ecommerce.Services.ProductCategories.GetCategoriesByLanguage(defaultLanguageId))
+                        var fields = new List<Dynamicweb.Ecommerce.Products.Categories.Field>();                        
+                        foreach (var category in Ecommerce.Services.ProductCategories.GetCategories())
                         {
                             if (category.CategoryType != Ecommerce.Products.Categories.CategoryType.SystemFields)
                             {
-                                fields.AddRange(Dynamicweb.Ecommerce.Products.Categories.Field.GetFieldsByCategoryId(category.Id, defaultLanguageId));
+                                fields.AddRange(Dynamicweb.Ecommerce.Services.ProductCategoryFields.GetFieldsByCategoryId(category.Id));
                             }
                         }
 
