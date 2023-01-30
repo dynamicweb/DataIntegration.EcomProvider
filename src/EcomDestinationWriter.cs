@@ -8,10 +8,10 @@ using System.Linq;
 using Dynamicweb.Data;
 using Dynamicweb.Logging;
 using Dynamicweb.DataIntegration.Integration;
-using Dynamicweb.DataIntegration.ProviderHelpers;
 using Dynamicweb.DataIntegration.Providers.DynamicwebProvider;
 using Dynamicweb.Core;
 using Dynamicweb.DataIntegration.Providers.SqlProvider;
+using Dynamicweb.DataIntegration.ProviderHelpers;
 
 namespace Dynamicweb.DataIntegration.Providers.EcomProvider
 {
