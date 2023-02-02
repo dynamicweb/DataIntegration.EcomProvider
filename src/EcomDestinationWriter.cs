@@ -1038,9 +1038,9 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             var mappingColumns = ColumnMappingsByMappingId[mapping.GetId()];
             foreach (ColumnMapping columnMapping in mappingColumns)
             {
-                if ((columnMapping.SourceColumn != null && row.ContainsKey(columnMapping.SourceColumn.Name)) || columnMapping.HasScriptWithValue())
+                if ((columnMapping.SourceColumn != null && row.ContainsKey(columnMapping.SourceColumn.Name)) || columnMapping.HasScriptWithValue)
                 {
-                    if (columnMapping.HasScriptWithValue())
+                    if (columnMapping.HasScriptWithValue)
                     {
                         dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
                     }
@@ -1101,7 +1101,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
 
             foreach (ColumnMapping columnMapping in mappingColumns)
             {
-                if (columnMapping.HasScriptWithValue() || row.ContainsKey(columnMapping.SourceColumn.Name))
+                if (columnMapping.HasScriptWithValue || row.ContainsKey(columnMapping.SourceColumn.Name))
                 {
                     switch (columnMapping.ScriptType)
                     {
@@ -1114,9 +1114,10 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                         case ScriptType.Constant:                        
                             dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
                             break;
-                    }
-                    if (columnMapping.HasNewGuidScript())
-                        dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
+                        case ScriptType.NewGuid:
+                            dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
+                            break;
+                    }                    
                 }
             }
             if (!discardDuplicates || !duplicateRowsHandler.IsRowDuplicate(mappingColumns.Where(cm => cm.Active), mapping, dataRow, row))
@@ -4026,7 +4027,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
         private string GetValue(ColumnMapping columnMapping, Dictionary<string, object> row)
         {
             string result = null;
-            if (columnMapping != null && (columnMapping.HasScriptWithValue() || row.ContainsKey(columnMapping.SourceColumn.Name)))
+            if (columnMapping != null && (columnMapping.HasScriptWithValue || row.ContainsKey(columnMapping.SourceColumn.Name)))
             {
                 switch (columnMapping.ScriptType)
                 {
@@ -4042,9 +4043,10 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                     case ScriptType.Constant:                    
                         result = columnMapping.GetScriptValue();                    
                         break;
-                }
-                if (columnMapping.HasNewGuidScript())
-                    result = columnMapping.GetScriptValue();
+                    case ScriptType.NewGuid:
+                        result = columnMapping.GetScriptValue();
+                        break;
+                }                    
             }
             return result;
         }

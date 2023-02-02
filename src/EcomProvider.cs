@@ -108,7 +108,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
         [AddInParameter("Ignore empty category field values"), AddInParameterEditor(typeof(YesNoParameterEditor), ""), AddInParameterGroup("Destination")]
         public bool IgnoreEmptyCategoryFieldValues { get; set; }
 
-        internal override SqlConnection Connection
+        protected override SqlConnection Connection
         {
             get { return connection ?? (connection = (SqlConnection)Database.CreateConnection()); }
             set { connection = value; }
