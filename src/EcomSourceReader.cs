@@ -1,10 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Data.SqlClient;
+﻿using Dynamicweb.Core;
 using Dynamicweb.DataIntegration.Integration;
-using Dynamicweb.Core;
 using Dynamicweb.DataIntegration.Integration.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Data.SqlClient;
+using System.Linq;
 
 namespace Dynamicweb.DataIntegration.Providers.EcomProvider
 {
@@ -85,7 +85,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             }
             return ret;
         }
-        
+
         protected bool IsColumnUsedInMappingConditions(string columnName)
         {
             return _mapping.Conditionals.Any(mc => string.Compare(mc.SourceColumn?.Name, columnName, true) == 0);
@@ -105,7 +105,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
         /// <returns></returns>
         public virtual Dictionary<string, object> GetNext()
         {
-            var rowValues = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);            
+            var rowValues = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             foreach (var column in Columns.Keys)
             {
                 rowValues[column] = _reader[column];
@@ -220,7 +220,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
 		                ) AS categoryValues
                         ON ProductId = FieldValueProductId 
                         AND ProductLanguageId = FieldValueProductLanguageId 
-                        AND ProductVariantId = FieldValueProductVariantId ", string.Join(",",CategoriesColumns.Keys.Select(x => $"[{x}]")));
+                        AND ProductVariantId = FieldValueProductVariantId ", string.Join(",", CategoriesColumns.Keys.Select(x => $"[{x}]")));
                     }
 
                     break;
@@ -320,7 +320,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                     break;
                 case "EcomProducts":
                     var ecomProductfieldsToSkip = new HashSet<string> { "groups", "groupsorting", "primarygroup", "variantgroups", "productlanguageid", "productmanufacturerid", "variantoptions", "relatedproducts" };
-                    result = GetDistinctColumnsFromMapping(ecomProductfieldsToSkip);                    
+                    result = GetDistinctColumnsFromMapping(ecomProductfieldsToSkip);
                     if (Columns.ContainsKey("Groups".ToLower()) || IsColumnUsedInMappingConditions("Groups"))
                     {
                         if (getGroupNamesForProduct)

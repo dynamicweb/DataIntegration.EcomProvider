@@ -1,4 +1,11 @@
-﻿using System;
+﻿using Dynamicweb.Data;
+using Dynamicweb.DataIntegration.Integration;
+using Dynamicweb.DataIntegration.Integration.Interfaces;
+using Dynamicweb.DataIntegration.ProviderHelpers;
+using Dynamicweb.Extensibility.AddIns;
+using Dynamicweb.Extensibility.Editors;
+using Dynamicweb.Logging;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
@@ -6,20 +13,13 @@ using System.Data.SqlClient;
 using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
-using Dynamicweb.DataIntegration.Integration.Interfaces;
-using Dynamicweb.Extensibility.AddIns;
-using Dynamicweb.Extensibility.Editors;
-using Dynamicweb.DataIntegration.Integration;
-using Dynamicweb.DataIntegration.ProviderHelpers;
-using Dynamicweb.Data;
-using Dynamicweb.Logging;
 
 namespace Dynamicweb.DataIntegration.Providers.EcomProvider
 {
     [AddInName("Dynamicweb.DataIntegration.Providers.Provider"), AddInLabel("Ecom Provider"), AddInDescription("Ecom provider"), AddInIgnore(false)]
-	public class EcomProvider : DynamicwebProvider.DynamicwebProvider, ISource, IDestination, IDropDownOptions
-	{
-        [AddInParameter("Get groups for variant options by:"), AddInParameterEditor(typeof(RadioParameterEditor), "Horizontal=true;"), AddInParameterGroup("Source")]
+    public class EcomProvider : DynamicwebProvider.DynamicwebProvider, ISource, IDestination, IDropDownOptions
+    {
+        [AddInParameter("Get groups for variant options by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
         public string GroupsForVariantOptionsBy
         {
             get
@@ -33,7 +33,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
         }
         public bool GetGroupNamesForVariantOptions { get; set; }
 
-        [AddInParameter("Get manufacturer for products by:"), AddInParameterEditor(typeof(RadioParameterEditor), "Horizontal=true;"), AddInParameterGroup("Source")]
+        [AddInParameter("Get manufacturer for products by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
         public string ManufacturerForProductsBy
         {
             get
@@ -48,7 +48,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
         }
         public bool GetManufacturerNamesForProducts { get; set; }
 
-        [AddInParameter("Get variant groups for products by:"), AddInParameterEditor(typeof(RadioParameterEditor), "Horizontal=true"), AddInParameterGroup("Source")]
+        [AddInParameter("Get variant groups for products by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
         public string VariantGroupsForProductsBy
         {
             get
@@ -58,7 +58,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             set { GetVariantGroupNamesForProduct = value == "Name"; }
         }
         public bool GetVariantGroupNamesForProduct { get; set; }
-        [AddInParameter("Get groups for products by:"), AddInParameterEditor(typeof(RadioParameterEditor), "Horizontal=true"), AddInParameterGroup("Source")]
+        [AddInParameter("Get groups for products by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
         public string GroupsForProductsBy
         {
             get
@@ -68,7 +68,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             set { GetGroupNamesForProduct = value == "Name"; }
         }
         public bool GetGroupNamesForProduct { get; set; }
-        [AddInParameter("Get related products by:"), AddInParameterEditor(typeof(RadioParameterEditor), "Horizontal=true"), AddInParameterGroup("Source")]
+        [AddInParameter("Get related products by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
         public string RelatedProductsBy
         {
             get
@@ -78,7 +78,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             set { GetRelatedProductsByName = value == "Name"; }
         }
         public bool GetRelatedProductsByName { get; set; }
-        [AddInParameter("Get related product groups by:"), AddInParameterEditor(typeof(RadioParameterEditor), "Horizontal=true"), AddInParameterGroup("Source")]
+        [AddInParameter("Get related product groups by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
         public string RelatedProductGroupsBy
         {
             get
@@ -166,7 +166,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                         table.AddColumn(new SqlColumn(("VariantGroups"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                         table.AddColumn(new SqlColumn(("VariantOptions"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                         table.AddColumn(new SqlColumn(("RelatedProducts"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                        var fields = new List<Dynamicweb.Ecommerce.Products.Categories.Field>();                        
+                        var fields = new List<Dynamicweb.Ecommerce.Products.Categories.Field>();
                         foreach (var category in Ecommerce.Services.ProductCategories.GetCategories())
                         {
                             if (category.CategoryType != Ecommerce.Products.Categories.CategoryType.SystemFields)
@@ -599,7 +599,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                             }
                             Writer.ReportProgress(mapping);
                         }
-                        if(mapping.DestinationTable.Name == "EcomProducts" && !CreateMissingGoups)
+                        if (mapping.DestinationTable.Name == "EcomProducts" && !CreateMissingGoups)
                         {
                             Writer.FailOnMissingGroups();
                         }

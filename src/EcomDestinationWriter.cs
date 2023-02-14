@@ -1,17 +1,17 @@
-﻿using System;
+﻿using Dynamicweb.Core;
+using Dynamicweb.Data;
+using Dynamicweb.DataIntegration.Integration;
+using Dynamicweb.DataIntegration.ProviderHelpers;
+using Dynamicweb.DataIntegration.Providers.DynamicwebProvider;
+using Dynamicweb.DataIntegration.Providers.SqlProvider;
+using Dynamicweb.Logging;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
-using System.Text;
 using System.Linq;
-using Dynamicweb.Data;
-using Dynamicweb.Logging;
-using Dynamicweb.DataIntegration.Integration;
-using Dynamicweb.DataIntegration.Providers.DynamicwebProvider;
-using Dynamicweb.Core;
-using Dynamicweb.DataIntegration.Providers.SqlProvider;
-using Dynamicweb.DataIntegration.ProviderHelpers;
+using System.Text;
 
 namespace Dynamicweb.DataIntegration.Providers.EcomProvider
 {
@@ -220,13 +220,13 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             {
                 sourceColumnMappingDictionary = new Dictionary<string, ColumnMapping>(StringComparer.OrdinalIgnoreCase);
                 SourceColumnMappings.Add(mapping.GetId(), sourceColumnMappingDictionary);
-            }            
+            }
 
             if (!DestinationColumnMappings.TryGetValue(tableName, out destinationColumnMappingDictionary))
             {
                 destinationColumnMappingDictionary = new Dictionary<string, Column>(StringComparer.OrdinalIgnoreCase);
-                DestinationColumnMappings.Add(tableName, destinationColumnMappingDictionary);                
-            }            
+                DestinationColumnMappings.Add(tableName, destinationColumnMappingDictionary);
+            }
             foreach (var columnMapping in mappings)
             {
                 if (!destinationColumnMappingDictionary.ContainsKey(columnMapping.DestinationColumn.Name))
@@ -311,7 +311,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                             EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
                             EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductRelID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
                             EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedGroupID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                            EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductRelVariantID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);                            
+                            EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductRelVariantID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
                             break;
                         case "EcomStockUnit":
                             EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockUnitProductID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
@@ -924,7 +924,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                         "ProductID", "ProductLanguageID", "ProductVariantID","ProductNumber", "ProductName",
                         "ProductVariantCounter", "ProductVariantGroupCounter","ProductVariantProdCounter"
                     };
-                    IEnumerable<string> ecomProductsPKColumns = MappingIdEcomProductsPKColumns.Values.SelectMany(i => i);                    
+                    IEnumerable<string> ecomProductsPKColumns = MappingIdEcomProductsPKColumns.Values.SelectMany(i => i);
                     if (ecomProductsPKColumns != null)
                     {
                         IEnumerable<string> columnsToAdd = ecomProductsPKColumns.Where(c =>
@@ -1061,37 +1061,37 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             columnMappings = SourceColumnMappings[mapping.GetId()];
             switch (mapping.DestinationTable.Name)
             {
-                case "EcomProductCategoryFieldValue":                    
+                case "EcomProductCategoryFieldValue":
                     WriteCategoyFieldValues(row, columnMappings, dataRow);
                     break;
-                case "EcomVariantGroups":                    
+                case "EcomVariantGroups":
                     WriteVariantGroups(row, columnMappings, dataRow);
                     break;
-                case "EcomVariantsOptions":                    
+                case "EcomVariantsOptions":
                     WriteVariantOptions(row, columnMappings, dataRow);
                     break;
-                case "EcomManufacturers":                    
+                case "EcomManufacturers":
                     WriteManufacturers(row, columnMappings, dataRow);
                     break;
-                case "EcomGroups":                    
+                case "EcomGroups":
                     WriteGroups(row, columnMappings, dataRow);
                     break;
-                case "EcomProducts":                    
+                case "EcomProducts":
                     if (!WriteProducts(row, mapping, columnMappings, dataRow))
                     {
                         return;
                     }
                     break;
-                case "EcomProductsRelated":                    
+                case "EcomProductsRelated":
                     WriteRelatedProducts(row, columnMappings, dataRow);
                     break;
-                case "EcomPrices":                    
+                case "EcomPrices":
                     WritePrices(row, columnMappings, dataRow);
                     break;
-                case "EcomDetails":                    
+                case "EcomDetails":
                     WriteDetails(row, columnMappings, dataRow);
                     break;
-                case "EcomAssortmentPermissions":                    
+                case "EcomAssortmentPermissions":
                     if (!WriteAssortments(row, columnMappings))
                     {
                         return;
@@ -1111,13 +1111,13 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                         case ScriptType.Prepend:
                             dataRow[columnMapping.DestinationColumn.Name] = columnMapping.ScriptValue + dataRow[columnMapping.DestinationColumn.Name];
                             break;
-                        case ScriptType.Constant:                        
+                        case ScriptType.Constant:
                             dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
                             break;
                         case ScriptType.NewGuid:
                             dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
                             break;
-                    }                    
+                    }
                 }
             }
             if (!discardDuplicates || !duplicateRowsHandler.IsRowDuplicate(mappingColumns.Where(cm => cm.Active), mapping, dataRow, row))
@@ -3370,10 +3370,10 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
 
                         if (!DestinationColumnMappings["EcomProducts"].ContainsKey("ProductNumber"))
                         {
-                            string[] columnsToSkip = new string[] { "ProductID", "ProductVariantID", "ProductLanguageID", 
+                            string[] columnsToSkip = new string[] { "ProductID", "ProductVariantID", "ProductLanguageID",
                                 "ProductNumber", "ProductName" };
 
-                            var ecomProductsPKColumns = MappingIdEcomProductsPKColumns.Keys.Count > 0 ? 
+                            var ecomProductsPKColumns = MappingIdEcomProductsPKColumns.Keys.Count > 0 ?
                                 MappingIdEcomProductsPKColumns[MappingIdEcomProductsPKColumns.Keys.First()] : null;
                             IEnumerable<string> columnsToSearchForProductsToUpdate = ecomProductsPKColumns.Where(c =>
                                 !columnsToSkip.Any(cs => string.Equals(c, cs, StringComparison.OrdinalIgnoreCase)));
@@ -3651,10 +3651,10 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
 
         private Dictionary<int, IEnumerable<string>> GetEcomProductsPKColumns()
         {
-            Dictionary<int, IEnumerable<string>> result = new Dictionary<int, IEnumerable<string>>();             
+            Dictionary<int, IEnumerable<string>> result = new Dictionary<int, IEnumerable<string>>();
             if (Mappings.TryGetValue("EcomProducts", out List<Mapping> productsMappings))
             {
-                foreach(var mapping in productsMappings)
+                foreach (var mapping in productsMappings)
                 {
                     if (!result.ContainsKey(mapping.GetId()))
                     {
@@ -3664,7 +3664,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                             cm.DestinationColumn != null && !string.IsNullOrEmpty(cm.DestinationColumn.Name) &&
                             cm.DestinationColumn.IsKeyColumn(columnMappings)).Select(cm => cm.DestinationColumn.Name));
                     }
-                }                
+                }
             }
             return result;
         }
@@ -3830,7 +3830,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             foreach (DataTable table in FindDataTablesStartingWithName("EcomVariantOptionsProductRelation"))
             {
                 string tempTableName = GetTableNameWithoutPrefix(table.TableName) + "TempTableForBulkImport" + GetPrefixFromTableName(table.TableName);
-                if(deleteExcess || removeMissingAfterImportDestinationTablesOnly)
+                if (deleteExcess || removeMissingAfterImportDestinationTablesOnly)
                 {
                     sqlCommand.CommandText += $"delete from EcomVariantOptionsProductRelation where VariantOptionsProductRelationProductID in (select VariantOptionsProductRelationProductID from {tempTableName}); ";
                 }
@@ -4040,13 +4040,13 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                     case ScriptType.Prepend:
                         result = columnMapping.ScriptValue + Converter.ToString(row[columnMapping.SourceColumn.Name]);
                         break;
-                    case ScriptType.Constant:                    
-                        result = columnMapping.GetScriptValue();                    
+                    case ScriptType.Constant:
+                        result = columnMapping.GetScriptValue();
                         break;
                     case ScriptType.NewGuid:
                         result = columnMapping.GetScriptValue();
                         break;
-                }                    
+                }
             }
             return result;
         }

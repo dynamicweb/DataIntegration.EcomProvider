@@ -23,7 +23,6 @@
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="Dynamicweb" Version="10.0.0-*" />
 		<PackageReference Include="Dynamicweb.Core" Version="10.0.0-*" />		
 		<PackageReference Include="Dynamicweb.DataIntegration" Version="10.0.0-*" />
 		<PackageReference Include="Dynamicweb.DataIntegration.Providers.DynamicwebProvider" Version="10.0.0-*" />		
