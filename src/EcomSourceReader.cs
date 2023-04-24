@@ -29,7 +29,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                 string sql = "select * from (select " + columns + " from  " + fromTables + ") as result";
 
                 List<SqlParameter> parameters = new List<SqlParameter>();
-                string conditionalsSql = _mapping.Conditionals.GetConditionalsSql(out parameters);
+                string conditionalsSql = SqlProvider.MappingExtensions.GetConditionalsSql(out parameters, _mapping.Conditionals, false, false);
                 if (conditionalsSql != "")
                 {
                     conditionalsSql = conditionalsSql.Substring(0, conditionalsSql.Length - 4);
