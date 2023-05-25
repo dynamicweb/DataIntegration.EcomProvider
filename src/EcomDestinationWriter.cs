@@ -1092,8 +1092,9 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                     WriteDetails(row, columnMappings, dataRow);
                     break;
                 case "EcomAssortmentPermissions":
-                    if (!WriteAssortments(row, columnMappings))
+                    if (!WriteAssortments(row, columnMappings, dataRow))
                     {
+                        DataRowsToWrite[GetTableName(mapping.DestinationTable.Name, mapping)].Add(RowAutoId++.ToString(), new List<DataRow>() { dataRow });
                         return;
                     }
                     break;
@@ -1576,7 +1577,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             return productID;
         }
 
-        private bool WriteAssortments(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings)
+        private bool WriteAssortments(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
         {
             ColumnMapping assortmentIdColumn = null;
             if (columnMappings.TryGetValue("AssortmentPermissionAssortmentID", out assortmentIdColumn) && row[assortmentIdColumn.SourceColumn.Name] != DBNull.Value && !string.IsNullOrEmpty(Converter.ToString(row[assortmentIdColumn.SourceColumn.Name])))
@@ -1612,10 +1613,8 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                 }
                 foreach (string userID in userIDs.Distinct())
                 {
-                    DataRow relation = GetDataTableNewRow("EcomAssortmentPermissions");
-                    relation["AssortmentPermissionAssortmentID"] = assortmentID;
-                    relation["AssortmentPermissionAccessUserID"] = userID;
-                    relation.Table.Rows.Add(relation);
+                    dataRow["AssortmentPermissionAssortmentID"] = assortmentID;
+                    dataRow["AssortmentPermissionAccessUserID"] = userID;
                 }
                 return false;
             }
