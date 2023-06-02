@@ -1028,10 +1028,6 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
         private long _writtenRowsCount = 0;
         public void Write(Dictionary<string, object> row, Mapping mapping, bool discardDuplicates)
         {
-            if (!mapping.Conditionals.CheckConditionals(row))
-            {
-                return;
-            }
             Dictionary<string, ColumnMapping> columnMappings = null;
             DataRow dataRow = DataToWrite.Tables[GetTableName(mapping.DestinationTable.Name, mapping)].NewRow();
 
@@ -1104,20 +1100,15 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             {
                 if (columnMapping.HasScriptWithValue || row.ContainsKey(columnMapping.SourceColumn.Name))
                 {
-                    switch (columnMapping.ScriptType)
+                    object dataToRow = columnMapping.ConvertInputValueToOutputValue(row[columnMapping.SourceColumn?.Name] ?? null);
+
+                    if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() != columnMapping.GetId()))
                     {
-                        case ScriptType.Append:
-                            dataRow[columnMapping.DestinationColumn.Name] = dataRow[columnMapping.DestinationColumn.Name] + columnMapping.ScriptValue;
-                            break;
-                        case ScriptType.Prepend:
-                            dataRow[columnMapping.DestinationColumn.Name] = columnMapping.ScriptValue + dataRow[columnMapping.DestinationColumn.Name];
-                            break;
-                        case ScriptType.Constant:
-                            dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
-                            break;
-                        case ScriptType.NewGuid:
-                            dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
-                            break;
+                        dataRow[columnMapping.DestinationColumn.Name] += dataToRow.ToString();
+                    }
+                    else
+                    {
+                        dataRow[columnMapping.DestinationColumn.Name] = dataToRow;
                     }
                 }
             }
@@ -2821,7 +2812,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             {
                 string sqlConditions = "";
                 string firstKey = "";
-                var columnMappings = mapping.GetColumnMappings();
+                var columnMappings = new ColumnMappingCollection(mapping.GetColumnMappings().Where(m => m.Active).DistinctBy(obj => obj.DestinationColumn.Name));
                 foreach (ColumnMapping columnMapping in columnMappings)
                 {
                     if (columnMapping.Active)
