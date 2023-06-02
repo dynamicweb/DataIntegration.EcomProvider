@@ -192,7 +192,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
         {
             foreach (var mapping in job.Mappings)
             {
-                var mappingColumns = new ColumnMappingCollection(mapping.GetColumnMappings().DistinctBy(obj => obj.DestinationColumn.Name));
+                var mappingColumns = mapping.GetColumnMappings();
                 ColumnMappingsByMappingId.Add(mapping.GetId(), mappingColumns);
                 InitMappingsByTableName(mapping);
                 InitColumnMappings(mapping, mappingColumns);
@@ -2812,7 +2812,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             {
                 string sqlConditions = "";
                 string firstKey = "";
-                var columnMappings = new ColumnMappingCollection(mapping.GetColumnMappings().DistinctBy(obj => obj.DestinationColumn.Name));
+                var columnMappings = new ColumnMappingCollection(mapping.GetColumnMappings().Where(m => m.Active).DistinctBy(obj => obj.DestinationColumn.Name));
                 foreach (ColumnMapping columnMapping in columnMappings)
                 {
                     if (columnMapping.Active)
