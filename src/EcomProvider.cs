@@ -266,109 +266,162 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                         break;
                     case "Schema":
                         Schema = new Schema(node);
-
                         break;
                     case "RemoveMissingAfterImport":
-                        RemoveMissingAfterImport = node.FirstChild.Value == "True";
+                        if (node.HasChildNodes)
+                        {
+                            RemoveMissingAfterImport = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "RemoveMissingAfterImportDestinationTablesOnly":
-                        RemoveMissingAfterImportDestinationTablesOnly = node.FirstChild.Value == "True";
+                        if (node.HasChildNodes)
+                        {
+                            RemoveMissingAfterImportDestinationTablesOnly = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "DeactivateMissingProducts":
-                        DeactivateMissingProducts = node.FirstChild.Value == "True";
+                        if (node.HasChildNodes)
+                        {
+                            DeactivateMissingProducts = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "Shop":
                         if (node.HasChildNodes)
+                        {
                             Shop = node.FirstChild.Value;
+                        }
                         break;
                     case "UserKeyField":
                         if (node.HasChildNodes)
+                        {
                             UserKeyField = node.FirstChild.Value;
+                        }
                         break;
                     case "GroupsForProductsBy":
                         if (node.HasChildNodes)
+                        {
                             GroupsForProductsBy = node.FirstChild.Value;
+                        }
                         break;
                     case "GroupsForVariantOptionsBy":
                         if (node.HasChildNodes)
+                        {
                             GroupsForVariantOptionsBy = node.FirstChild.Value;
+                        }
                         break;
                     case "ManufacturerForProductsBy":
                         if (node.HasChildNodes)
+                        {
                             ManufacturerForProductsBy = node.FirstChild.Value;
+                        }
                         break;
                     case "RelatedProductGroupsBy":
                         if (node.HasChildNodes)
+                        {
                             RelatedProductGroupsBy = node.FirstChild.Value;
+                        }
                         break;
                     case "RelatedProductsBy":
                         if (node.HasChildNodes)
+                        {
                             RelatedProductsBy = node.FirstChild.Value;
+                        }
                         break;
                     case "VariantGroupsForProductsBy":
                         if (node.HasChildNodes)
+                        {
                             VariantGroupsForProductsBy = node.FirstChild.Value;
+                        }
                         break;
                     case "DefaultLanguage":
                         if (node.HasChildNodes)
+                        {
                             DefaultLanguage = node.FirstChild.Value;
+                        }
                         break;
                     case "UpdateOnlyExistingProducts":
                         if (node.HasChildNodes)
+                        {
                             UpdateOnlyExistingProducts = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "UseStrictPrimaryKeyMatching":
                         if (node.HasChildNodes)
+                        {
                             UseStrictPrimaryKeyMatching = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "CreateMissingGoups":
                         if (node.HasChildNodes)
+                        {
                             CreateMissingGoups = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "RepositoriesIndexUpdate":
                         if (node.HasChildNodes)
+                        {
                             RepositoriesIndexUpdate = node.FirstChild.Value;
+                        }
                         break;
                     case "DeleteProductsAndGroupForSpecificLanguage":
                         if (node.HasChildNodes)
+                        {
                             DeleteProductsAndGroupForSpecificLanguage = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "UpdateOnlyExistingRecords":
                         if (node.HasChildNodes)
+                        {
                             UpdateOnlyExistingRecords = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "DeleteIncomingItems":
                         if (node.HasChildNodes)
+                        {
                             DeleteIncomingItems = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "DiscardDuplicates":
                         if (node.HasChildNodes)
+                        {
                             DiscardDuplicates = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "HideDeactivatedProducts":
                         if (node.HasChildNodes)
+                        {
                             HideDeactivatedProducts = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "InsertOnlyNewRecords":
                         if (node.HasChildNodes)
+                        {
                             InsertOnlyNewRecords = node.FirstChild.Value == "True";
+                        }
                         break;
-
                     case nameof(DisableCacheClearing):
                         if (node.HasChildNodes)
+                        {
                             DisableCacheClearing = node.FirstChild.Value == "True";
+                        }
                         break;
                     case "SkipFailingRows":
                         if (node.HasChildNodes)
+                        {
                             SkipFailingRows = node.FirstChild.Value == "True";
+                        }
                         break;
                     case nameof(UseProductIdFoundByNumber):
                         if (node.HasChildNodes)
+                        {
                             UseProductIdFoundByNumber = node.FirstChild.Value == "True";
+                        }
                         break;
                     case nameof(IgnoreEmptyCategoryFieldValues):
                         if (node.HasChildNodes)
+                        {
                             IgnoreEmptyCategoryFieldValues = node.FirstChild.Value == "True";
+                        }
                         break;
                 }
             }
