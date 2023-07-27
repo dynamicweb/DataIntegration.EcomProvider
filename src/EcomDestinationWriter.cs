@@ -1098,9 +1098,10 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
 
             foreach (ColumnMapping columnMapping in mappingColumns)
             {
-                if (columnMapping.HasScriptWithValue || row.ContainsKey(columnMapping.SourceColumn.Name))
+                object rowValue = null;
+                if (columnMapping.HasScriptWithValue || row.TryGetValue(columnMapping.SourceColumn?.Name, out rowValue))                    
                 {
-                    object dataToRow = columnMapping.ConvertInputValueToOutputValue(row[columnMapping.SourceColumn?.Name] ?? null);
+                    object dataToRow = columnMapping.ConvertInputValueToOutputValue(rowValue);
 
                     if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() != columnMapping.GetId()))
                     {
