@@ -1,4 +1,5 @@
-﻿using Dynamicweb.Core;
+﻿using Dynamicweb.Configuration;
+using Dynamicweb.Core;
 using Dynamicweb.Data;
 using Dynamicweb.DataIntegration.Integration;
 using Dynamicweb.DataIntegration.ProviderHelpers;
@@ -2899,7 +2900,13 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                     }
                 }
                 sqlCommand.CommandText = sqlUpdateInsert;
-                sqlCommand.CommandTimeout = 360;
+
+                int timeout = SystemConfiguration.Instance.GetInt32("/GlobalSettings/System/Database/CommandTimeout");
+                if (SystemConfiguration.Instance.GetInt32("/Globalsettings/DataIntegration/SQLSourceCommandTimeout") > timeout)
+                    timeout = SystemConfiguration.Instance.GetInt32("/Globalsettings/DataIntegration/SQLSourceCommandTimeout");
+                if (timeout < 360)
+                    timeout = 360;
+                sqlCommand.CommandTimeout = timeout;
                 sqlCommand.ExecuteNonQuery();
             }
             catch (Exception ex)
