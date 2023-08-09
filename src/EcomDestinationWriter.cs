@@ -358,7 +358,6 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                             destColumns.Add(new SqlColumn("GroupName", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
                             CreateTempTable(table.SqlSchema, table.Name, "TempTableForBulkImport", destColumns, logger);
                             AddTableToDataset(destColumns, table.Name);
-
                             break;
                         case "EcomVariantGroups":
                             destColumns.Add(new SqlColumn("VariantGroupID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
@@ -415,56 +414,65 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                     }
                 }
             }
+
             //Create product group relation temp table
-            List<SqlColumn> groupProductRelationColumns = new List<SqlColumn>{
+            List<SqlColumn> groupProductRelationColumns = new List<SqlColumn>
+            {
                 new SqlColumn("GroupProductRelationGroupId",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
                 new SqlColumn("GroupProductRelationProductId",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
                 new SqlColumn("GroupProductRelationSorting",typeof(int),SqlDbType.Int,null,-1,false,false,false),
-                new SqlColumn("GroupProductRelationIsPrimary",typeof(bool),SqlDbType.Bit,null,-1,false,false,false)};
+                new SqlColumn("GroupProductRelationIsPrimary",typeof(bool),SqlDbType.Bit,null,-1,false,false,false)
+            };
             CreateTempTable(null, "EcomGroupProductRelation", "TempTableForBulkImport", groupProductRelationColumns, logger);
             AddTableToDataset(groupProductRelationColumns, "EcomGroupProductRelation");
 
             //create product variantgroup relation temp table
-            List<SqlColumn> variantGroupProductRelation = new List<SqlColumn>{
+            List<SqlColumn> variantGroupProductRelation = new List<SqlColumn>
+            {
                 new SqlColumn("VariantgroupProductRelationProductID",typeof(string),SqlDbType.NVarChar,null,255,false,false,false),
                 new SqlColumn("VariantgroupProductRelationVariantGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,false,false),
-                new SqlColumn("VariantgroupProductRelationID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false)};
-
+                new SqlColumn("VariantgroupProductRelationID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
+                new SqlColumn("VariantGroupProductRelationSorting",typeof(int),SqlDbType.Int,null,-1,false,false,false)
+            };
             CreateTempTable(null, "EcomVariantgroupProductRelation", "TempTableForBulkImport", variantGroupProductRelation, logger);
+            AddTableToDataset(variantGroupProductRelation, "EcomVariantgroupProductRelation");
 
             //Create ShopGroupRelation temp table
-            AddTableToDataset(variantGroupProductRelation, "EcomVariantgroupProductRelation");
             List<SqlColumn> shopGroupRelations = new List<SqlColumn>
-                                                     {
-                                            new SqlColumn("ShopGroupShopID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-                                             new SqlColumn("ShopGroupGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-                                             new SqlColumn("ShopGroupRelationsSorting",typeof(int),SqlDbType.Int,null,-1,false,false,false)};
-
+            {
+                new SqlColumn("ShopGroupShopID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
+                new SqlColumn("ShopGroupGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
+                new SqlColumn("ShopGroupRelationsSorting",typeof(int),SqlDbType.Int,null,-1,false,false,false)
+            };
             CreateTempTable(null, "EcomShopGroupRelation", "TempTableForBulkImport", shopGroupRelations, logger);
             AddTableToDataset(shopGroupRelations, "EcomShopGroupRelation");
+
             //Create Shop relation table
             List<SqlColumn> shops = new List<SqlColumn>
-                                                     {
-                                            new SqlColumn("ShopID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-                    new SqlColumn("ShopName",typeof(string),SqlDbType.NVarChar,null,255,false,true,false)};
+            {
+                new SqlColumn("ShopID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
+                new SqlColumn("ShopName",typeof(string),SqlDbType.NVarChar,null,255,false,true,false)
+            };
             CreateTempTable(null, "EcomShops", "TempTableForBulkImport", shops, logger);
             AddTableToDataset(shops, "EcomShops");
+
             //Create Product-relatedGroup temp table
             List<SqlColumn> productsRelatedGroups = new List<SqlColumn>
-                                                        {
-                                                          new SqlColumn("RelatedGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-                                                          new SqlColumn("RelatedGroupName",typeof(string),SqlDbType.NVarChar,null,255,false,false,false),
-                                                          new SqlColumn("RelatedGroupLanguageID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-                                                      };
+            {
+                new SqlColumn("RelatedGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
+                new SqlColumn("RelatedGroupName",typeof(string),SqlDbType.NVarChar,null,255,false,false,false),
+                new SqlColumn("RelatedGroupLanguageID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false)
+            };
             CreateTempTable(null, "EcomProductsRelatedGroups", "TempTableForBulkImport", productsRelatedGroups, logger);
             AddTableToDataset(productsRelatedGroups, "EcomProductsRelatedGroups");
+
             //Create EcomGroupRelations temp table
             List<SqlColumn> groupRelations = new List<SqlColumn>
-                                                        {
-                                                          new SqlColumn("GroupRelationsGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-                                                          new SqlColumn("GroupRelationsParentID",typeof(string),SqlDbType.NVarChar,null,255,false,false,false),
-                                                          new SqlColumn("GroupRelationsSorting",typeof(int),SqlDbType.Int,null,-1,false,false,false),
-                                                      };
+            {
+                new SqlColumn("GroupRelationsGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
+                new SqlColumn("GroupRelationsParentID",typeof(string),SqlDbType.NVarChar,null,255,false,false,false),
+                new SqlColumn("GroupRelationsSorting",typeof(int),SqlDbType.Int,null,-1,false,false,false)
+            };
             CreateTempTable(null, "EcomGroupRelations", "TempTableForBulkImport", groupRelations, logger);
             AddTableToDataset(groupRelations, "EcomGroupRelations");
         }
@@ -538,6 +546,8 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             }
             set { _lastVariantGroupProductRelationID = value; }
         }
+
+        private int _variantGroupProductRelationSortingCounter = 0;
 
         private int _lastRelatedGroupID = -1;
         protected int LastRelatedGroupID
@@ -1100,7 +1110,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
             foreach (ColumnMapping columnMapping in mappingColumns)
             {
                 object rowValue = null;
-                if (columnMapping.HasScriptWithValue || row.TryGetValue(columnMapping.SourceColumn?.Name, out rowValue))                    
+                if (columnMapping.HasScriptWithValue || row.TryGetValue(columnMapping.SourceColumn?.Name, out rowValue))
                 {
                     object dataToRow = columnMapping.ConvertInputValueToOutputValue(rowValue);
 
@@ -2413,6 +2423,8 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                 var variantGroupProductRelation = DataToWrite.Tables["EcomVariantgroupProductrelation"].NewRow();
                 variantGroupProductRelation["VariantGroupProductRelationVariantGroupID"] = variantGroupID;
                 variantGroupProductRelation["VariantGroupProductRelationProductID"] = productID;
+                _variantGroupProductRelationSortingCounter++;
+                variantGroupProductRelation["VariantGroupProductRelationSorting"] = _variantGroupProductRelationSortingCounter;
                 LastVariantGroupProductRelationID = LastVariantGroupProductRelationID + 1;
                 variantGroupProductRelation["VariantgroupProductRelationID"] = "ImportedVARGRPPRODREL" + LastVariantGroupProductRelationID;
 
@@ -3823,7 +3835,7 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
                 "delete from EcomShopGroupRelation where ShopGroupGroupID in (select ShopGroupGroupID from EcomShopGroupRelationTempTableForBulkImport); " +
                 "insert into EcomShopGroupRelation(ShopGroupShopID,ShopGroupGroupID,ShopGroupRelationsSorting) select shopgroupshopid,shopgroupgroupid,ShopGroupRelationsSorting from ecomshopgrouprelationtemptableforbulkimport; " +
                 "delete from EcomVariantgroupProductRelation where VariantgroupProductRelationProductID in (select VariantgroupProductRelationProductID from EcomVariantgroupProductRelationTempTableForBulkImport); " +
-                "insert into EcomVariantgroupProductRelation (VariantgroupProductRelationID,VariantgroupProductRelationProductID,VariantgroupProductRelationVariantGroupID)select VariantgroupProductRelationID,VariantgroupProductRelationProductID,VariantgroupProductRelationVariantGroupID from EcomVariantgroupProductRelationTempTableForBulkImport;";
+                "insert into EcomVariantgroupProductRelation (VariantgroupProductRelationID,VariantgroupProductRelationProductID,VariantgroupProductRelationVariantGroupID,VariantGroupProductRelationSorting)select VariantgroupProductRelationID,VariantgroupProductRelationProductID,VariantgroupProductRelationVariantGroupID,VariantGroupProductRelationSorting from EcomVariantgroupProductRelationTempTableForBulkImport;";
 
             foreach (DataTable table in FindDataTablesStartingWithName("EcomVariantOptionsProductRelation"))
             {
