@@ -90,22 +90,49 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider
 
         public bool GetRelatedProductGroupsByName { get; set; }
 
-        [AddInParameter("Use strict primary key matching"), AddInParameterEditor(typeof(YesNoParameterEditor), ""), AddInParameterGroup("Destination"), AddInParameterOrder(38)]
+        [AddInParameter("Default Language"), AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Set the default language for the imported products"), AddInParameterGroup("Destination"), AddInParameterOrder(10)]        
+        public override string DefaultLanguage
+        {
+            get
+            {                
+                return base.DefaultLanguage;
+            }
+            set
+            {
+                defaultLanguage = value;
+            }
+        }
+
+        [AddInParameter("Shop"), AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Set a shop for the imported products"), AddInParameterGroup("Destination"), AddInParameterOrder(20)]
+        public override string Shop { get; set; }
+
+        [AddInParameter("Deactivate missing products"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When ON missing products are deactivated. When OFF no action is taken. When Delete incoming rows is ON, Deactivate missing products is skipped. The Hide deactivated products option is used only when Deactivate missing products is ON"), AddInParameterGroup("Destination"), AddInParameterOrder(30)]
+        public override bool DeactivateMissingProducts { get; set; }
+
+
+        [AddInParameter("Use strict primary key matching"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=This import affects ONLY records which match the selected primary key. If not checked the provider tries the following: Look at ProductID, Look at ProductNumber, Look at ProductName. If none match, create new record"), AddInParameterGroup("Destination"), AddInParameterOrder(38)]
         public bool UseStrictPrimaryKeyMatching { get; set; }
 
-        [AddInParameter("Update only existing products"), AddInParameterEditor(typeof(YesNoParameterEditor), ""), AddInParameterGroup("Destination"), AddInParameterOrder(41)]
+        [AddInParameter("Update only existing products"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When this option is ON the imported products are updated but not inserted. When OFF products are updated and inserted. If Delete incoming rows is ON, Update only existing products is skipped. If Update only existing records is ON, Update only existing products is skipped"), AddInParameterGroup("Destination"), AddInParameterOrder(41)]
         public bool UpdateOnlyExistingProducts { get; set; }
 
         [AddInParameter("Create missing groups"), AddInParameterEditor(typeof(YesNoParameterEditor), ""), AddInParameterGroup("Destination"), AddInParameterOrder(42)]
         public bool CreateMissingGoups { get; set; }
 
+
+        [AddInParameter("Delete incoming rows"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes existing rows present in the import source. When Delete incoming rows is ON, the following options are skipped: Update only existing products, Update only existing records, Deactivate missing products, Remove missing rows after import, and Delete products / groups for languages included in input"), AddInParameterGroup("Destination"), AddInParameterOrder(50)]
+        public override bool DeleteIncomingItems { get; set; }
+
+        [AddInParameter("Delete products/groups for languages included in input"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes products and groups only from the languages included in the import. When Delete incoming rows is ON, this option is ignored"), AddInParameterGroup("Destination"), AddInParameterOrder(60)]
+        public override bool DeleteProductsAndGroupForSpecificLanguage { get; set; }
+
         [AddInParameter("User key field"), AddInParameterEditor(typeof(TextParameterEditor), ""), AddInParameterGroup("Hidden")]
         public new string UserKeyField { get; set; }
 
-        [AddInParameter("Use existing Product Id found by Number in Variant Products"), AddInParameterEditor(typeof(YesNoParameterEditor), ""), AddInParameterGroup("Destination")]
+        [AddInParameter("Use existing Product Id found by Number in Variant Products"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When checked, the values in Dynamicweb ProductId and ProductVariantID will be used at import to update products in Dynamicweb. A product is only updated if it matches the ProductNumber (in default language) of the imported row and if the Dynamicweb ProductVariantId field is not empty"), AddInParameterGroup("Destination")]
         public bool UseProductIdFoundByNumber { get; set; }
 
-        [AddInParameter("Ignore empty category field values"), AddInParameterEditor(typeof(YesNoParameterEditor), ""), AddInParameterGroup("Destination")]
+        [AddInParameter("Ignore empty category field values"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When checked, the Ecom provider does not write empty category field values to the database"), AddInParameterGroup("Destination")]
         public bool IgnoreEmptyCategoryFieldValues { get; set; }
 
         protected override SqlConnection Connection
