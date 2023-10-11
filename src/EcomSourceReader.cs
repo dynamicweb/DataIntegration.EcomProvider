@@ -8,46 +8,12 @@ using System.Linq;
 
 namespace Dynamicweb.DataIntegration.Providers.EcomProvider;
 
-class EcomSourceReader : ISourceReader
+class EcomSourceReader : BaseSqlReader, ISourceReader
 {
-    protected SqlCommand _command;
-    protected SqlDataReader _reader;
-    protected Mapping _mapping;
-
     private Dictionary<string, ColumnMapping> Columns = new Dictionary<string, ColumnMapping>();
     private Dictionary<string, ColumnMapping> CategoriesColumns = new Dictionary<string, ColumnMapping>();
 
-    private void LoadReaderFromDatabase()
-    {
-        try
-        {
-            ColumnMappingCollection columnmappings = _mapping.GetColumnMappings();
-            if (columnmappings.Count == 0)
-                return;
-            string columns = GetColumns();
-            string fromTables = GetFromTables();
-            string sql = "select * from (select " + columns + " from  " + fromTables + ") as result";
-
-            List<SqlParameter> parameters = new List<SqlParameter>();
-            string conditionalsSql = MappingExtensions.GetConditionalsSql(out parameters, _mapping.Conditionals, false, false);
-            if (conditionalsSql != "")
-            {
-                conditionalsSql = conditionalsSql.Substring(0, conditionalsSql.Length - 4);
-                sql = sql + " where " + conditionalsSql;
-                foreach (SqlParameter p in parameters)
-                    _command.Parameters.Add(p);
-            }
-            _command.CommandText = sql;
-            _reader = _command.ExecuteReader();
-        }
-        catch (Exception ex)
-        {
-            throw new Exception("Failed to open sqlSourceReader. Reason: " + ex.Message, ex);
-        }
-    }
-
-
-    protected string GetDistinctColumnsFromMapping()
+    protected new string GetDistinctColumnsFromMapping()
     {
         return GetDistinctColumnsFromMapping(new HashSet<string> { });
     }
@@ -65,7 +31,7 @@ class EcomSourceReader : ISourceReader
         return result;
     }
 
-    protected string GetColumnsFromMappingConditions()
+    protected new string GetColumnsFromMappingConditions()
     {
         return GetColumnsFromMappingConditions(new HashSet<string>());
     }
@@ -73,9 +39,9 @@ class EcomSourceReader : ISourceReader
     protected string GetColumnsFromMappingConditions(HashSet<string> columnsToSkip)
     {
         string ret = string.Empty;
-        if (_mapping.Conditionals.Count > 0)
+        if (mapping.Conditionals.Count > 0)
         {
-            foreach (MappingConditional mc in _mapping.Conditionals.Where(mc => mc != null && mc.SourceColumn != null).GroupBy(g => new { g.SourceColumn.Name }).Select(g => g.First()))
+            foreach (MappingConditional mc in mapping.Conditionals.Where(mc => mc != null && mc.SourceColumn != null).GroupBy(g => new { g.SourceColumn.Name }).Select(g => g.First()))
             {
                 if (!columnsToSkip.Contains(mc.SourceColumn.Name.ToLower()) && !Columns.ContainsKey(mc.SourceColumn.Name.ToLower()))
                 {
@@ -88,22 +54,14 @@ class EcomSourceReader : ISourceReader
 
     protected bool IsColumnUsedInMappingConditions(string columnName)
     {
-        return _mapping.Conditionals.Any(mc => string.Compare(mc.SourceColumn?.Name, columnName, true) == 0);
-    }
-
-    public virtual bool IsDone()
-    {
-        if (_reader.Read())
-            return false;
-        _reader.Close();
-        return true;
+        return mapping.Conditionals.Any(mc => string.Compare(mc.SourceColumn?.Name, columnName, true) == 0);
     }
 
     /// <summary>
     /// base implementation, 
     /// </summary>
     /// <returns></returns>
-    public virtual Dictionary<string, object> GetNext()
+    public virtual new Dictionary<string, object> GetNext()
     {
         var rowValues = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         foreach (var column in Columns.Keys)
@@ -113,12 +71,7 @@ class EcomSourceReader : ISourceReader
         return rowValues;
     }
 
-    public void Dispose()
-    {
-        _reader.Close();
-    }
-
-    public EcomSourceReader(Mapping mapping, SqlConnection connection, bool getGroupNamesForVariantOptions, bool getManufacturerNamesForProducts, bool getGroupNamesForProduct, bool getVariantGroupNamesForProduct, bool getRelatedProductsByName, bool getRelatedProductGroupsByName)
+    public EcomSourceReader(Mapping mapping, SqlConnection connection, bool getGroupNamesForVariantOptions, bool getManufacturerNamesForProducts, bool getGroupNamesForProduct, bool getVariantGroupNamesForProduct, bool getRelatedProductsByName, bool getRelatedProductGroupsByName) : base(mapping, connection)
     {
         this.getGroupNamesForVariantOptions = getGroupNamesForVariantOptions;
         this.getRelatedProductGroupsByName = getRelatedProductGroupsByName;
@@ -155,7 +108,7 @@ class EcomSourceReader : ISourceReader
                 }
             }
         }
-        this._mapping = mapping;
+        this.mapping = mapping;
         _command = new SqlCommand { Connection = connection };
 
         int _commandtimeout = Dynamicweb.Configuration.SystemConfiguration.Instance.Contains("/Globalsettings/Settings/DataIntegration/SQLSourceCommandTimeout") ?
@@ -169,12 +122,41 @@ class EcomSourceReader : ISourceReader
         LoadReaderFromDatabase();
     }
 
-    protected string GetFromTables()
+    private void LoadReaderFromDatabase()
     {
-        string result = "[" + _mapping.SourceTable.SqlSchema + "].[" + _mapping.SourceTable.Name +
-                         "] as outer" + _mapping.SourceTable.Name;
+        try
+        {
+            ColumnMappingCollection columnmappings = mapping.GetColumnMappings();
+            if (columnmappings.Count == 0)
+                return;
+            string columns = GetColumns();
+            string fromTables = GetFromTables();
+            string sql = "select * from (select " + columns + " from  " + fromTables + ") as result";
 
-        switch (_mapping.SourceTable.Name)
+            List<SqlParameter> parameters = new List<SqlParameter>();
+            string conditionalsSql = MappingExtensions.GetConditionalsSql(out parameters, mapping.Conditionals, false, false);
+            if (conditionalsSql != "")
+            {
+                conditionalsSql = conditionalsSql.Substring(0, conditionalsSql.Length - 4);
+                sql = sql + " where " + conditionalsSql;
+                foreach (SqlParameter p in parameters)
+                    _command.Parameters.Add(p);
+            }
+            _command.CommandText = sql;
+            _reader = _command.ExecuteReader();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Failed to open sqlSourceReader. Reason: " + ex.Message, ex);
+        }
+    }
+
+    protected new string GetFromTables()
+    {
+        string result = "[" + mapping.SourceTable.SqlSchema + "].[" + mapping.SourceTable.Name +
+                         "] as outer" + mapping.SourceTable.Name;
+
+        switch (mapping.SourceTable.Name)
         {
             case "EcomGroups":
                 if (Columns.ContainsKey("GroupLanguageID".ToLower()) || IsColumnUsedInMappingConditions("GroupLanguageID"))
@@ -243,13 +225,13 @@ class EcomSourceReader : ISourceReader
                 }
                 break;
             default:
-                result = "[" + _mapping.SourceTable.SqlSchema + "].[" + _mapping.SourceTable.Name + "]";
-                if (_mapping.SourceTable != null && _mapping.SourceTable.Name == "EcomAssortmentPermissions" &&
-                    (_mapping.GetColumnMappings().Find(cm => cm.SourceColumn != null && cm.SourceColumn.Name.ToLower() == "AssortmentPermissionAccessUserID".ToLower()) != null ||
-                    _mapping.GetColumnMappings().Find(cm => cm.SourceColumn != null && cm.SourceColumn.Name.ToLower() == "AssortmentPermissionCustomerNumber".ToLower()) != null ||
-                    _mapping.GetColumnMappings().Find(cm => cm.SourceColumn != null && cm.SourceColumn.Name.ToLower() == "AssortmentPermissionExternalID".ToLower()) != null))
+                result = "[" + mapping.SourceTable.SqlSchema + "].[" + mapping.SourceTable.Name + "]";
+                if (mapping.SourceTable != null && mapping.SourceTable.Name == "EcomAssortmentPermissions" &&
+                    (mapping.GetColumnMappings().Find(cm => cm.SourceColumn != null && cm.SourceColumn.Name.ToLower() == "AssortmentPermissionAccessUserID".ToLower()) != null ||
+                    mapping.GetColumnMappings().Find(cm => cm.SourceColumn != null && cm.SourceColumn.Name.ToLower() == "AssortmentPermissionCustomerNumber".ToLower()) != null ||
+                    mapping.GetColumnMappings().Find(cm => cm.SourceColumn != null && cm.SourceColumn.Name.ToLower() == "AssortmentPermissionExternalID".ToLower()) != null))
                 {
-                    result = "[" + _mapping.SourceTable.SqlSchema + "].[" + _mapping.SourceTable.Name + "] as outer" + _mapping.SourceTable.Name;
+                    result = "[" + mapping.SourceTable.SqlSchema + "].[" + mapping.SourceTable.Name + "] as outer" + mapping.SourceTable.Name;
                     result = result + " join AccessUser on AssortmentPermissionAccessUserID=AccessUserID";
                 }
                 break;
@@ -257,10 +239,10 @@ class EcomSourceReader : ISourceReader
         return result;
     }
 
-    protected string GetColumns()
+    protected new string GetColumns()
     {
         string result = "";
-        switch (_mapping.SourceTable.Name)
+        switch (mapping.SourceTable.Name)
         {
             case "EcomGroups":
                 var ecomGroupfieldsToSkip = new HashSet<string> { "shops", "grouplanguageid", "parentgroups", "shopsorting", "parentgroupssorting" };
@@ -429,7 +411,7 @@ class EcomSourceReader : ISourceReader
             default:
                 result = GetDistinctColumnsFromMapping();
 
-                if (_mapping.SourceTable != null && _mapping.SourceTable.Name == "EcomAssortmentPermissions")
+                if (mapping.SourceTable != null && mapping.SourceTable.Name == "EcomAssortmentPermissions")
                 {
                     result = GetDistinctColumnsFromMapping(new HashSet<string> { "assortmentpermissioncustomernumber", "assortmentpermissionexternalid" });
                     if (Columns.ContainsKey("AssortmentPermissionCustomerNumber".ToLower()))

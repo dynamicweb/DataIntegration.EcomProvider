@@ -2,8 +2,12 @@
 using Dynamicweb.DataIntegration.Integration;
 using Dynamicweb.DataIntegration.Integration.Interfaces;
 using Dynamicweb.DataIntegration.ProviderHelpers;
+using Dynamicweb.Environment;
+using Dynamicweb.Extensibility;
 using Dynamicweb.Extensibility.AddIns;
 using Dynamicweb.Extensibility.Editors;
+using Dynamicweb.Indexing;
+using Dynamicweb.Indexing.Repositories;
 using Dynamicweb.Logging;
 using Microsoft.CodeAnalysis;
 using System;
@@ -139,14 +143,11 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
     [AddInParameter("Remove missing rows after import"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Removes rows from the destination and relation tables. This option takes precedence"), AddInParameterGroup("Destination"), AddInParameterOrder(40)]
     public bool RemoveMissingAfterImport { get; set; }
 
-    [AddInParameter("Update only existing products"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When this option is ON the imported products are updated but not inserted. When OFF products are updated and inserted. If Delete incoming rows is ON, Update only existing products is skipped. If Update only existing records is ON, Update only existing products is skipped"), AddInParameterGroup("Destination"), AddInParameterOrder(41)]
+    [AddInParameter("Update only existing products"), AddInParameterEditor(typeof(YesNoParameterEditor), ""), AddInParameterGroup("Destination"), AddInParameterOrder(41)]
     public bool UpdateOnlyExistingProducts { get; set; }
 
     [AddInParameter("Create missing groups"), AddInParameterEditor(typeof(YesNoParameterEditor), ""), AddInParameterGroup("Destination"), AddInParameterOrder(42)]
     public bool CreateMissingGoups { get; set; }
-
-    [AddInParameter("User key field"), AddInParameterEditor(typeof(TextParameterEditor), ""), AddInParameterGroup("Hidden")]
-    public string UserKeyField { get; set; }
 
     [AddInParameter("Delete incoming rows"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes existing rows present in the import source. When Delete incoming rows is ON, the following options are skipped: Update only existing products, Update only existing records, Deactivate missing products, Remove missing rows after import, and Delete products / groups for languages included in input"), AddInParameterGroup("Destination"), AddInParameterOrder(50)]
     public bool DeleteIncomingItems { get; set; }
@@ -159,6 +160,9 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
 
     [AddInParameter("Hide deactivated products"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When Deactivate missing products is ON, this option hides the deactivated products. If Delete incoming rows is ON, Hide deactivated products is skipped. If Deactivate missing products is OFF, Hide deactivated products is skipped"), AddInParameterGroup("Destination"), AddInParameterOrder(80)]
     public bool HideDeactivatedProducts { get; set; }
+
+    [AddInParameter("User key field"), AddInParameterEditor(typeof(TextParameterEditor), ""), AddInParameterGroup("Hidden")]
+    public string UserKeyField { get; set; }
 
     [AddInParameter("Repositories index update"), AddInParameterEditor(typeof(DropDownParameterEditor), "multiple=true;none=true;Tooltip=Index update might affect on slower perfomance"), AddInParameterGroup("Destination"), AddInParameterOrder(80)]
     public string RepositoriesIndexUpdate { get; set; }
@@ -249,6 +253,7 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
             ecomAssortmentPermissionsTable.AddColumn(new SqlColumn(("AssortmentPermissionCustomerNumber"), typeof(string), SqlDbType.NVarChar, ecomAssortmentPermissionsTable, -1, false, false, true));
             ecomAssortmentPermissionsTable.AddColumn(new SqlColumn(("AssortmentPermissionExternalID"), typeof(string), SqlDbType.NVarChar, ecomAssortmentPermissionsTable, -1, false, false, true));
         }
+
         return result;
     }
 
