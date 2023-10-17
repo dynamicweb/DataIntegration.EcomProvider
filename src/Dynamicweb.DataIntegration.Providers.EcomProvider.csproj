@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<Version>10.0.5</Version>
+		<Version>10.0.6</Version>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<Description>Ecommerce Provider</Description>
 	</PropertyGroup>
@@ -10,7 +10,7 @@
 		<Product>Dynamicweb CMS</Product>
 		<Company>Dynamicweb Software A/S</Company>
 		<Authors>Dynamicweb Software A/S</Authors>
-		<Copyright>Copyright © 2020 Dynamicweb Software A/S</Copyright>
+		<Copyright>Copyright © 2023 Dynamicweb Software A/S</Copyright>
 	</PropertyGroup>
 	<PropertyGroup>
 		<TargetFramework>net7.0</TargetFramework>
@@ -22,12 +22,8 @@
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="Dynamicweb.Core" Version="10.0.0" />		
-		<PackageReference Include="Dynamicweb.DataIntegration" Version="10.0.0" />
-    <PackageReference Include="Dynamicweb.DataIntegration.Providers.DynamicwebProvider" Version="10.0.5" />
-    <PackageReference Include="Dynamicweb.DataIntegration.Providers.XmlProvider" Version="10.0.0" />
-    <PackageReference Include="Dynamicweb.DataIntegration.Providers.SqlProvider" Version="10.0.0" />
-    <PackageReference Include="Dynamicweb.Ecommerce" Version="10.0.0" />
+		<PackageReference Include="Dynamicweb.DataIntegration" Version="10.0.14" />
+		<PackageReference Include="Dynamicweb.Ecommerce" Version="10.0.9" />
 		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
 	</ItemGroup>
 </Project>
