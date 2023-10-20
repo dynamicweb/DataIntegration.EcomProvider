@@ -1,12 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<Version>10.0.6</Version>
+		<Version>10.0.7</Version>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
-		<Description>Ecommerce Provider</Description>
+		<Description>Ecom Provider</Description>
+		<Description>Ecom Provider</Description>
 	</PropertyGroup>
 	<PropertyGroup>
 		<PackageProjectUrl>https://doc.dynamicweb.com/</PackageProjectUrl>
-		<PackageTags>Dynamicweb dw10 addin dataintegration providers</PackageTags>
+		<PackageTags>Dynamicweb dw10 addin integration providers</PackageTags>
 		<Product>Dynamicweb CMS</Product>
 		<Company>Dynamicweb Software A/S</Company>
 		<Authors>Dynamicweb Software A/S</Authors>
