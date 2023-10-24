@@ -213,9 +213,9 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
         return GetSchema(false);
     }
 
-    private Schema GetDynamicwebSourceSchema()
+    private Schema GetDynamicwebSourceSchema(IEnumerable<string> tableNames)
     {
-        Schema result = GetSqlSourceSchema(Connection);
+        Schema result = GetSqlSourceSchema(Connection, tableNames);
         //set key for AccessUserTable
         if (UserKeyField != null)
         {
@@ -264,21 +264,12 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
     /// <returns></returns>
     public Schema GetSchema(bool getForDestination)
     {
-        Schema result = GetDynamicwebSourceSchema();
         List<string> tablestToKeep = new()
         { "EcomProducts", "EcomManufacturers", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions",
                 "EcomProductsRelated", "EcomProductItems", "EcomStockUnit", "EcomDetails","EcomProductCategoryFieldValue", "EcomLanguages", "EcomPrices",
                 "EcomAssortmentGroupRelations", "EcomAssortmentPermissions", "EcomAssortmentProductRelations", "EcomAssortments", "EcomAssortmentShopRelations", "EcomVariantOptionsProductRelation"};
-        List<Table> tablesToRemove = new();
-        foreach (Table table in result.GetTables())
-        {
-            if (!tablestToKeep.Contains(table.Name))
-                tablesToRemove.Add(table);
-        }
-        foreach (Table table in tablesToRemove)
-        {
-            result.RemoveTable(table);
-        }
+        Schema result = GetDynamicwebSourceSchema(tablestToKeep);
+        
         foreach (Table table in result.GetTables())
         {
             switch (table.Name)
