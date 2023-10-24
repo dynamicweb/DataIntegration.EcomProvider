@@ -730,7 +730,7 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
         return new EcomSourceReader(mapping, Connection, GetGroupNamesForVariantOptions, GetManufacturerNamesForProducts, GetGroupNamesForProduct, GetVariantGroupNamesForProduct, GetRelatedProductsByName, GetRelatedProductGroupsByName);
     }
 
-    protected internal static void OrderTablesInJob(Job job)
+    public override void OrderTablesInJob(Job job, bool isSource)
     {
         MappingCollection tables = new MappingCollection();
         if (GetMappingsByName(job.Mappings, "EcomLanguages") != null)
@@ -782,7 +782,7 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
         ReplaceMappingConditionalsWithValuesFromRequest(job);
         if (IsFirstJobRun)
         {
-            OrderTablesInJob(job);
+            OrderTablesInJob(job, true);
         }
         SqlTransaction sqlTransaction = null;
         if (Connection.State.ToString() != "Open")
