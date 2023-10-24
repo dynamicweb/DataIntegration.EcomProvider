@@ -782,7 +782,7 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
         ReplaceMappingConditionalsWithValuesFromRequest(job);
         if (IsFirstJobRun)
         {
-            OrderTablesInJob(job, true);
+            OrderTablesInJob(job, false);
         }
         SqlTransaction sqlTransaction = null;
         if (Connection.State.ToString() != "Open")
