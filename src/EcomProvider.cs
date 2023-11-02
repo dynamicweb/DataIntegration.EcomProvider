@@ -2,12 +2,8 @@
 using Dynamicweb.DataIntegration.Integration;
 using Dynamicweb.DataIntegration.Integration.Interfaces;
 using Dynamicweb.DataIntegration.ProviderHelpers;
-using Dynamicweb.Environment;
-using Dynamicweb.Extensibility;
 using Dynamicweb.Extensibility.AddIns;
 using Dynamicweb.Extensibility.Editors;
-using Dynamicweb.Indexing;
-using Dynamicweb.Indexing.Repositories;
 using Dynamicweb.Logging;
 using Microsoft.CodeAnalysis;
 using System;
@@ -97,9 +93,9 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
     }
 
     public bool GetRelatedProductGroupsByName { get; set; }
-    
+
     private string defaultLanguage = null;
-    [AddInParameter("Default Language"), AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Set the default language for the imported products"), AddInParameterGroup("Destination"), AddInParameterOrder(10)]        
+    [AddInParameter("Default Language"), AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Set the default language for the imported products"), AddInParameterGroup("Destination"), AddInParameterOrder(10)]
     public string DefaultLanguage
     {
         get
@@ -213,9 +209,9 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
         return GetSchema(false);
     }
 
-    private Schema GetDynamicwebSourceSchema(IEnumerable<string> tableNames)
+    private Schema GetDynamicwebSourceSchema()
     {
-        Schema result = GetSqlSourceSchema(Connection, tableNames);
+        Schema result = GetSqlSourceSchema(Connection);
         //set key for AccessUserTable
         if (UserKeyField != null)
         {
@@ -264,12 +260,21 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
     /// <returns></returns>
     public Schema GetSchema(bool getForDestination)
     {
+        Schema result = GetDynamicwebSourceSchema();
         List<string> tablestToKeep = new()
         { "EcomProducts", "EcomManufacturers", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions",
                 "EcomProductsRelated", "EcomProductItems", "EcomStockUnit", "EcomDetails","EcomProductCategoryFieldValue", "EcomLanguages", "EcomPrices",
                 "EcomAssortmentGroupRelations", "EcomAssortmentPermissions", "EcomAssortmentProductRelations", "EcomAssortments", "EcomAssortmentShopRelations", "EcomVariantOptionsProductRelation"};
-        Schema result = GetDynamicwebSourceSchema(tablestToKeep);
-        
+        List<Table> tablesToRemove = new();
+        foreach (Table table in result.GetTables())
+        {
+            if (!tablestToKeep.Contains(table.Name))
+                tablesToRemove.Add(table);
+        }
+        foreach (Table table in tablesToRemove)
+        {
+            result.RemoveTable(table);
+        }
         foreach (Table table in result.GetTables())
         {
             switch (table.Name)
@@ -957,7 +962,7 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
         var sqlCommand = GetOpenConnection();
         var languagesDataAdapter = new SqlDataAdapter("SELECT LanguageID, LanguageCode2, LanguageName FROM EcomLanguages", sqlCommand.Connection);
         _ = new SqlCommandBuilder(languagesDataAdapter);
-        var  languageDataSet = new DataSet();
+        var languageDataSet = new DataSet();
         languagesDataAdapter.Fill(languageDataSet);
         foreach (DataRow row in languageDataSet.Tables[0].Rows)
         {
