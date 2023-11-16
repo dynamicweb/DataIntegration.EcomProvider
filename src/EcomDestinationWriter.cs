@@ -2641,7 +2641,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 {
                     sqlCommand.Transaction = transaction;
                     string extraConditions = GetDeleteFromSpecificLanguageExtraCondition(mapping, tempTablePrefix, languageId);
-                    DeleteExcessFromMainTable(mapping, extraConditions, sqlCommand, tempTablePrefix, removeMissingAfterImportDestinationTablesOnly);
+                    var rowsAffected = DeleteExcessFromMainTable(sqlCommand, mapping, extraConditions, tempTablePrefix, removeMissingAfterImportDestinationTablesOnly);
+                    if (rowsAffected > 0)
+                        logger.Log($"The number of deleted rows: {rowsAffected} for the destination {mapping.DestinationTable.Name} table mapping");
                 }
                 else if (!(mapping.DestinationTable.Name == "EcomGroups" && !_removeFromEcomGroups) && !(mapping.DestinationTable.Name == "EcomVariantGroups" && !_removeFromEcomVariantGroups))
                 {
@@ -2653,11 +2655,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     sqlCommand.Transaction = transaction;
                     if (mapping.DestinationTable.Name == "EcomProducts" && deactivateMissing)
                     {
-                        DeactivateMissingProductsInMainTable(mapping, sqlCommand, shop, _defaultLanguageId, hideDeactivatedProducts);
+                        var rowsAffected = DeactivateMissingProductsInMainTable(mapping, sqlCommand, shop, _defaultLanguageId, hideDeactivatedProducts);
+                        if (rowsAffected > 0)
+                            logger.Log($"The number of the deactivated product rows: {rowsAffected}");
                     }
                     else if (removeMissingAfterImport || removeMissingAfterImportDestinationTablesOnly)
                     {
-                        DeleteExcessFromMainTable(mapping, GetExtraConditions(mapping, shop, null), sqlCommand, tempTablePrefix, removeMissingAfterImportDestinationTablesOnly);
+                        var rowsAffected = DeleteExcessFromMainTable(sqlCommand, mapping, GetExtraConditions(mapping, shop, null), tempTablePrefix, removeMissingAfterImportDestinationTablesOnly);
+                        if (rowsAffected > 0)
+                            logger.Log($"The number of deleted rows: {rowsAffected} for the destination {mapping.DestinationTable.Name} table mapping");
                     }
                 }
             }
@@ -2672,7 +2678,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             string tempTablePrefix = "TempTableForBulkImport" + mapping.GetId();
             if (HasRowsToImport(mapping, out tempTablePrefix))
             {
-                DeleteExistingFromMainTable(mapping, GetExtraConditions(mapping, shop, languageId), sqlCommand, tempTablePrefix);
+                var rowsAffected = DeleteExistingFromMainTable(sqlCommand, mapping, GetExtraConditions(mapping, shop, languageId), tempTablePrefix);
+                if (rowsAffected > 0)
+                    logger.Log($"The number of deleted rows: {rowsAffected} for the destination {mapping.DestinationTable.Name} table mapping");
             }
         }
     }
@@ -2864,7 +2872,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (timeout < 360)
                 timeout = 360;
             sqlCommand.CommandTimeout = timeout;
-            sqlCommand.ExecuteNonQuery();
+            var rowsAffected = sqlCommand.ExecuteNonQuery();
+            if (rowsAffected > 0)
+            {
+                logger.Log($"The number of rows affected: {rowsAffected} in the {mapping.DestinationTable.Name} table");
+            }
         }
         catch (Exception ex)
         {
