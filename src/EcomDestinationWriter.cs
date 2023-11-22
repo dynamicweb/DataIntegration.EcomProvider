@@ -3,6 +3,7 @@ using Dynamicweb.Core;
 using Dynamicweb.Data;
 using Dynamicweb.DataIntegration.Integration;
 using Dynamicweb.DataIntegration.ProviderHelpers;
+using Dynamicweb.Ecommerce.Stocks;
 using Dynamicweb.Logging;
 using System;
 using System.Collections;
@@ -1045,7 +1046,18 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             if ((columnMapping.SourceColumn != null && row.ContainsKey(columnMapping.SourceColumn.Name)) || columnMapping.HasScriptWithValue)
             {
-                if (columnMapping.HasScriptWithValue)
+                if (mapping.DestinationTable.Name.Equals("EcomStockUnit", StringComparison.OrdinalIgnoreCase) && columnMapping.DestinationColumn.Name.Equals("StockUnitStockLocationId", StringComparison.OrdinalIgnoreCase))
+                {
+                    var stockLocationID = GetStockLocationIdByName(row, columnMapping);
+                    dataRow[columnMapping.DestinationColumn.Name] = stockLocationID;
+                    row[columnMapping.SourceColumn.Name] = stockLocationID;
+                }
+
+                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() != columnMapping.GetId()))
+                {
+                    dataRow[columnMapping.DestinationColumn.Name] += columnMapping.ConvertInputToOutputFormat(row[columnMapping.SourceColumn.Name]) + "";
+                }
+                else if (columnMapping.HasScriptWithValue)
                 {
                     dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
                 }
@@ -1102,6 +1114,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     DataRowsToWrite[GetTableName(mapping.DestinationTable.Name, mapping)].Add(RowAutoId++.ToString(), new List<DataRow>() { dataRow });
                     return;
                 }
+                break;
+            case "EcomStockUnit":
+                WriteStockUnits(row, columnMappings, dataRow);
                 break;
         }
 
@@ -1835,6 +1850,48 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
         return groupID;
+    }
+
+    private void WriteStockUnits(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
+    {
+        if (!columnMappings.TryGetValue("StockUnitId", out _))
+        {
+            if (columnMappings.TryGetValue("StockUnitProductID", out var stockUnitProductIDColumn) && columnMappings.TryGetValue("StockUnitVariantID", out var stockUnitVariantIDColumn))
+            {
+                var productID = row[stockUnitProductIDColumn.SourceColumn.Name].ToString();
+                var variantID = row[stockUnitVariantIDColumn.SourceColumn.Name].ToString();
+                if (productID.Equals(variantID, StringComparison.OrdinalIgnoreCase))
+                {
+                    variantID = string.Empty;
+                }
+
+                var productBaseUnitOfMeasure = GetProductDefaultUnitId(productID, variantID);
+                if (!string.IsNullOrEmpty(productBaseUnitOfMeasure))
+                {
+                    dataRow["StockUnitId"] = productBaseUnitOfMeasure;
+                }
+            }
+        }
+    }
+
+    private string GetProductDefaultUnitId(string productID, string variantID)
+    {
+        var product = Ecommerce.Services.Products.GetProductById(productID, variantID, true);
+        if (product == null)
+        {
+            logger.Warn($"Could not find product with productid: {productID} and variantid:{variantID} on the default language");
+        }
+        return product.DefaultUnitId;
+    }
+
+    private long GetStockLocationIdByName(Dictionary<string, object> row, ColumnMapping stockLocationIdColumn)
+    {
+        StockLocation existingStockLocation = GetExistingStockLocation(row, stockLocationIdColumn);
+        if (existingStockLocation != null)
+        {
+            return existingStockLocation.ID;
+        }
+        return 0;
     }
 
     private void WriteManufacturers(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
@@ -3601,6 +3658,35 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 if (rows.Length > 0)
                 {
                     result = rows[0];
+                }
+            }
+        }
+        return result;
+    }
+
+    private StockLocation GetExistingStockLocation(Dictionary<string, object> row, ColumnMapping stockLocationIdColumn)
+    {
+        StockLocation result = null;
+        if (stockLocationIdColumn != null && !string.IsNullOrEmpty(stockLocationIdColumn.SourceColumn.Name))
+        {
+            var stockLocationId = row[stockLocationIdColumn.SourceColumn.Name]?.ToString() ?? string.Empty;
+            if (!string.IsNullOrEmpty(stockLocationId))
+            {
+                if (long.TryParse(stockLocationId, out var stockLocationIdAsLong))
+                {
+                    result = Ecommerce.Services.StockService.GetStockLocation(stockLocationIdAsLong);
+                }
+
+                if (result == null)
+                {
+                    var defaultLanguageId = Ecommerce.Services.Languages.GetDefaultLanguageId();
+                    foreach (var location in Ecommerce.Services.StockService.GetStockLocations())
+                    {
+                        if (location.GetName(defaultLanguageId).Equals(stockLocationId, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return location;
+                        }
+                    }
                 }
             }
         }
