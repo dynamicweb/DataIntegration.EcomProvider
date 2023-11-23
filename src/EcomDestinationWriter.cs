@@ -1044,7 +1044,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         var mappingColumns = ColumnMappingsByMappingId[mapping.GetId()];
         foreach (ColumnMapping columnMapping in mappingColumns)
         {
-            if ((columnMapping.SourceColumn != null && row.ContainsKey(columnMapping.SourceColumn.Name)) || columnMapping.HasScriptWithValue)
+            if ((columnMapping.DestinationColumn != null && columnMapping.SourceColumn != null && row.ContainsKey(columnMapping.SourceColumn.Name)) || columnMapping.HasScriptWithValue)
             {
                 if (mapping.DestinationTable.Name.Equals("EcomStockUnit", StringComparison.OrdinalIgnoreCase) && columnMapping.DestinationColumn.Name.Equals("StockUnitStockLocationId", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1070,6 +1070,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 if (columnMapping.Active)
                 {
+                    if (columnMapping.DestinationColumn == null)
+                    {
+                        logger.Error($"The DestinationColumn is null for the table mapping {mapping.SourceTable?.Name} to {mapping.DestinationTable?.Name} on SourceColumn {columnMapping.SourceColumn?.Name}");
+                    }
+                    if (columnMapping.SourceColumn == null && !columnMapping.HasScriptWithValue)
+                    {
+                        logger.Error($"The SourceColumn is null for the table mapping {mapping.SourceTable?.Name} to {mapping.DestinationTable?.Name} on DestinationColumn {columnMapping.DestinationColumn?.Name}");
+                    }
                     throw new Exception(BaseDestinationWriter.GetRowValueNotFoundMessage(row, columnMapping.SourceColumn.Table.Name, columnMapping.SourceColumn.Name));
                 }
             }
