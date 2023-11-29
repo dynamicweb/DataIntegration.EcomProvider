@@ -1053,7 +1053,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     row[columnMapping.SourceColumn.Name] = stockLocationID;
                 }
 
-                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() != columnMapping.GetId()))
+                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() < columnMapping.GetId()))
                 {
                     dataRow[columnMapping.DestinationColumn.Name] += columnMapping.ConvertInputToOutputFormat(row[columnMapping.SourceColumn.Name]) + "";
                 }
@@ -1124,7 +1124,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 break;
             case "EcomStockUnit":
-                WriteStockUnits(row, columnMappings, dataRow);
+                WriteStockUnits(row, columnMappings, dataRow, mapping);
                 break;
         }
 
@@ -1135,7 +1135,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 object dataToRow = columnMapping.ConvertInputValueToOutputValue(rowValue);
 
-                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() != columnMapping.GetId()))
+                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() < columnMapping.GetId()))
                 {
                     dataRow[columnMapping.DestinationColumn.Name] += dataToRow.ToString();
                 }
@@ -1860,12 +1860,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return groupID;
     }
 
-    private void WriteStockUnits(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
+    private void WriteStockUnits(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow, Mapping mapping)
     {
         if (!columnMappings.TryGetValue("StockUnitId", out _))
-        {
+        {            
             if (columnMappings.TryGetValue("StockUnitProductID", out var stockUnitProductIDColumn) && columnMappings.TryGetValue("StockUnitVariantID", out var stockUnitVariantIDColumn))
             {
+                mapping.AddMapping(mapping.SourceTable.Columns.FirstOrDefault(), mapping.DestinationTable.Columns.Where(obj => obj.Name.Equals("StockUnitId", StringComparison.OrdinalIgnoreCase)).FirstOrDefault());
+
                 var productID = row[stockUnitProductIDColumn.SourceColumn.Name].ToString();
                 var variantID = row[stockUnitVariantIDColumn.SourceColumn.Name].ToString();
                 if (productID.Equals(variantID, StringComparison.OrdinalIgnoreCase))
