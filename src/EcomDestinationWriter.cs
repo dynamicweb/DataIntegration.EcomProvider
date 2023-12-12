@@ -3628,7 +3628,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         foreach (DataTable table in DataToWrite.Tables)
         {
             string tableName = GetTableNameWithoutPrefix(table.TableName) + "TempTableForBulkImport" + GetPrefixFromTableName(table.TableName);
-            sqlCommand.CommandText = "if exists (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'" + tableName + "') AND type in (N'U')) drop table " + tableName;
+            sqlCommand.CommandText = $"if exists (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'{tableName}') AND type in (N'U')) drop table [{tableName}]";            
             sqlCommand.ExecuteNonQuery();
         }
 
