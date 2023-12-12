@@ -3,6 +3,7 @@ using Dynamicweb.Core;
 using Dynamicweb.Data;
 using Dynamicweb.DataIntegration.Integration;
 using Dynamicweb.DataIntegration.ProviderHelpers;
+using Dynamicweb.Ecommerce.Stocks;
 using Dynamicweb.Logging;
 using System;
 using System.Collections;
@@ -1043,9 +1044,20 @@ internal class EcomDestinationWriter : BaseSqlWriter
         var mappingColumns = ColumnMappingsByMappingId[mapping.GetId()];
         foreach (ColumnMapping columnMapping in mappingColumns)
         {
-            if ((columnMapping.SourceColumn != null && row.ContainsKey(columnMapping.SourceColumn.Name)) || columnMapping.HasScriptWithValue)
+            if ((columnMapping.DestinationColumn != null && columnMapping.SourceColumn != null && row.ContainsKey(columnMapping.SourceColumn.Name)) || columnMapping.HasScriptWithValue)
             {
-                if (columnMapping.HasScriptWithValue)
+                if (mapping.DestinationTable.Name.Equals("EcomStockUnit", StringComparison.OrdinalIgnoreCase) && columnMapping.DestinationColumn.Name.Equals("StockUnitStockLocationId", StringComparison.OrdinalIgnoreCase))
+                {
+                    var stockLocationID = GetStockLocationIdByName(row, columnMapping);
+                    dataRow[columnMapping.DestinationColumn.Name] = stockLocationID;
+                    row[columnMapping.SourceColumn.Name] = stockLocationID;
+                }
+
+                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() < columnMapping.GetId()))
+                {
+                    dataRow[columnMapping.DestinationColumn.Name] += columnMapping.ConvertInputToOutputFormat(row[columnMapping.SourceColumn.Name]) + "";
+                }
+                else if (columnMapping.HasScriptWithValue)
                 {
                     dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
                 }
@@ -1058,6 +1070,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 if (columnMapping.Active)
                 {
+                    if (columnMapping.DestinationColumn == null)
+                    {
+                        logger.Error($"The DestinationColumn is null for the table mapping {mapping.SourceTable?.Name} to {mapping.DestinationTable?.Name} on SourceColumn {columnMapping.SourceColumn?.Name}");
+                    }
+                    if (columnMapping.SourceColumn == null && !columnMapping.HasScriptWithValue)
+                    {
+                        logger.Error($"The SourceColumn is null for the table mapping {mapping.SourceTable?.Name} to {mapping.DestinationTable?.Name} on DestinationColumn {columnMapping.DestinationColumn?.Name}");
+                    }
                     throw new Exception(BaseDestinationWriter.GetRowValueNotFoundMessage(row, columnMapping.SourceColumn.Table.Name, columnMapping.SourceColumn.Name));
                 }
             }
@@ -1103,6 +1123,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     return;
                 }
                 break;
+            case "EcomStockUnit":
+                WriteStockUnits(row, columnMappings, dataRow, mapping);
+                break;
         }
 
         foreach (ColumnMapping columnMapping in mappingColumns)
@@ -1112,7 +1135,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 object dataToRow = columnMapping.ConvertInputValueToOutputValue(rowValue);
 
-                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() != columnMapping.GetId()))
+                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() < columnMapping.GetId()))
                 {
                     dataRow[columnMapping.DestinationColumn.Name] += dataToRow.ToString();
                 }
@@ -1835,6 +1858,50 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
         return groupID;
+    }
+
+    private void WriteStockUnits(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow, Mapping mapping)
+    {
+        if (!columnMappings.TryGetValue("StockUnitId", out _))
+        {            
+            if (columnMappings.TryGetValue("StockUnitProductID", out var stockUnitProductIDColumn) && columnMappings.TryGetValue("StockUnitVariantID", out var stockUnitVariantIDColumn))
+            {
+                mapping.AddMapping(mapping.SourceTable.Columns.FirstOrDefault(), mapping.DestinationTable.Columns.Where(obj => obj.Name.Equals("StockUnitId", StringComparison.OrdinalIgnoreCase)).FirstOrDefault());
+
+                var productID = row[stockUnitProductIDColumn.SourceColumn.Name].ToString();
+                var variantID = row[stockUnitVariantIDColumn.SourceColumn.Name].ToString();
+                if (productID.Equals(variantID, StringComparison.OrdinalIgnoreCase))
+                {
+                    variantID = string.Empty;
+                }
+
+                var productBaseUnitOfMeasure = GetProductDefaultUnitId(productID, variantID);
+                if (!string.IsNullOrEmpty(productBaseUnitOfMeasure))
+                {
+                    dataRow["StockUnitId"] = productBaseUnitOfMeasure;
+                }
+            }
+        }
+    }
+
+    private string GetProductDefaultUnitId(string productID, string variantID)
+    {
+        var product = Ecommerce.Services.Products.GetProductById(productID, variantID, true);
+        if (product == null)
+        {
+            logger.Warn($"Could not find product with productid: {productID} and variantid:{variantID} on the default language");
+        }
+        return product.DefaultUnitId;
+    }
+
+    private long GetStockLocationIdByName(Dictionary<string, object> row, ColumnMapping stockLocationIdColumn)
+    {
+        StockLocation existingStockLocation = GetExistingStockLocation(row, stockLocationIdColumn);
+        if (existingStockLocation != null)
+        {
+            return existingStockLocation.ID;
+        }
+        return 0;
     }
 
     private void WriteManufacturers(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
@@ -2641,7 +2708,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 {
                     sqlCommand.Transaction = transaction;
                     string extraConditions = GetDeleteFromSpecificLanguageExtraCondition(mapping, tempTablePrefix, languageId);
-                    DeleteExcessFromMainTable(mapping, extraConditions, sqlCommand, tempTablePrefix, removeMissingAfterImportDestinationTablesOnly);
+                    var rowsAffected = DeleteExcessFromMainTable(sqlCommand, mapping, extraConditions, tempTablePrefix, removeMissingAfterImportDestinationTablesOnly);
+                    if (rowsAffected > 0)
+                        logger.Log($"The number of deleted rows: {rowsAffected} for the destination {mapping.DestinationTable.Name} table mapping");
                 }
                 else if (!(mapping.DestinationTable.Name == "EcomGroups" && !_removeFromEcomGroups) && !(mapping.DestinationTable.Name == "EcomVariantGroups" && !_removeFromEcomVariantGroups))
                 {
@@ -2653,11 +2722,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     sqlCommand.Transaction = transaction;
                     if (mapping.DestinationTable.Name == "EcomProducts" && deactivateMissing)
                     {
-                        DeactivateMissingProductsInMainTable(mapping, sqlCommand, shop, _defaultLanguageId, hideDeactivatedProducts);
+                        var rowsAffected = DeactivateMissingProductsInMainTable(mapping, sqlCommand, shop, _defaultLanguageId, hideDeactivatedProducts);
+                        if (rowsAffected > 0)
+                            logger.Log($"The number of the deactivated product rows: {rowsAffected}");
                     }
                     else if (removeMissingAfterImport || removeMissingAfterImportDestinationTablesOnly)
                     {
-                        DeleteExcessFromMainTable(mapping, GetExtraConditions(mapping, shop, null), sqlCommand, tempTablePrefix, removeMissingAfterImportDestinationTablesOnly);
+                        var rowsAffected = DeleteExcessFromMainTable(sqlCommand, mapping, GetExtraConditions(mapping, shop, null), tempTablePrefix, removeMissingAfterImportDestinationTablesOnly);
+                        if (rowsAffected > 0)
+                            logger.Log($"The number of deleted rows: {rowsAffected} for the destination {mapping.DestinationTable.Name} table mapping");
                     }
                 }
             }
@@ -2672,7 +2745,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             string tempTablePrefix = "TempTableForBulkImport" + mapping.GetId();
             if (HasRowsToImport(mapping, out tempTablePrefix))
             {
-                DeleteExistingFromMainTable(mapping, GetExtraConditions(mapping, shop, languageId), sqlCommand, tempTablePrefix);
+                var rowsAffected = DeleteExistingFromMainTable(sqlCommand, mapping, GetExtraConditions(mapping, shop, languageId), tempTablePrefix);
+                if (rowsAffected > 0)
+                    logger.Log($"The number of deleted rows: {rowsAffected} for the destination {mapping.DestinationTable.Name} table mapping");
             }
         }
     }
@@ -2864,7 +2939,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (timeout < 360)
                 timeout = 360;
             sqlCommand.CommandTimeout = timeout;
-            sqlCommand.ExecuteNonQuery();
+            var rowsAffected = sqlCommand.ExecuteNonQuery();
+            if (rowsAffected > 0)
+            {
+                logger.Log($"The number of rows affected: {rowsAffected} in the {mapping.DestinationTable.Name} table");
+            }
         }
         catch (Exception ex)
         {
@@ -3589,6 +3668,35 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 if (rows.Length > 0)
                 {
                     result = rows[0];
+                }
+            }
+        }
+        return result;
+    }
+
+    private StockLocation GetExistingStockLocation(Dictionary<string, object> row, ColumnMapping stockLocationIdColumn)
+    {
+        StockLocation result = null;
+        if (stockLocationIdColumn != null && !string.IsNullOrEmpty(stockLocationIdColumn.SourceColumn.Name))
+        {
+            var stockLocationId = row[stockLocationIdColumn.SourceColumn.Name]?.ToString() ?? string.Empty;
+            if (!string.IsNullOrEmpty(stockLocationId))
+            {
+                if (long.TryParse(stockLocationId, out var stockLocationIdAsLong))
+                {
+                    result = Ecommerce.Services.StockService.GetStockLocation(stockLocationIdAsLong);
+                }
+
+                if (result == null)
+                {
+                    var defaultLanguageId = Ecommerce.Services.Languages.GetDefaultLanguageId();
+                    foreach (var location in Ecommerce.Services.StockService.GetStockLocations())
+                    {
+                        if (location.GetName(defaultLanguageId).Equals(stockLocationId, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return location;
+                        }
+                    }
                 }
             }
         }
