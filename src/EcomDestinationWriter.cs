@@ -3725,7 +3725,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return result;
     }
 
-    internal void Close()
+    internal new void Close()
     {
         //Reset Language cache
         if (FindDataTablesStartingWithName("EcomLanguages").Count() > 0)

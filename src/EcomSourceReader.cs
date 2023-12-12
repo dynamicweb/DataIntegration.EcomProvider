@@ -61,7 +61,7 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
     /// base implementation, 
     /// </summary>
     /// <returns></returns>
-    public virtual new Dictionary<string, object> GetNext()
+    public override Dictionary<string, object> GetNext()
     {
         var rowValues = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         foreach (var column in Columns.Keys)
@@ -151,7 +151,7 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
         }
     }
 
-    protected new string GetFromTables()
+    protected override string GetFromTables()
     {
         string result = "[" + mapping.SourceTable.SqlSchema + "].[" + mapping.SourceTable.Name +
                          "] as outer" + mapping.SourceTable.Name;
@@ -239,7 +239,7 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
         return result;
     }
 
-    protected new string GetColumns()
+    protected override string GetColumns()
     {
         string result = "";
         switch (mapping.SourceTable.Name)

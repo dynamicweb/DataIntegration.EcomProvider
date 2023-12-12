@@ -18,7 +18,7 @@ using System.Xml.Linq;
 namespace Dynamicweb.DataIntegration.Providers.EcomProvider;
 
 [AddInName("Dynamicweb.DataIntegration.Providers.Provider"), AddInLabel("Ecom Provider"), AddInDescription("Ecom provider"), AddInIgnore(false)]
-public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOptions
+public class EcomProvider : BaseSqlProvider, IParameterOptions
 {
     private Schema Schema;
     private bool IsFirstJobRun = true;
@@ -206,60 +206,6 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
 
     public override Schema GetOriginalSourceSchema()
     {
-        return GetSchema(false);
-    }
-
-    private Schema GetDynamicwebSourceSchema()
-    {
-        Schema result = GetSqlSourceSchema(Connection);
-        //set key for AccessUserTable
-        if (UserKeyField != null)
-        {
-            Column keyColumn = result.GetTables().Find(t => t.Name == "AccessUser").Columns.Find(c => c.Name == UserKeyField);
-            if (keyColumn != null)
-                keyColumn.IsPrimaryKey = true;
-        }
-
-        //Set key for other tables that are missing keys in the database
-        var table = result.GetTables().FirstOrDefault(t => t.Name == "Ecom7Tree");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "id").IsPrimaryKey = true;
-        }
-        if (result.GetTables().Exists(t => t.Name.Contains("Ipaper")))
-        {
-            UpdateIPaperTables(result);
-        }
-        table = result.GetTables().Find(t => t.Name == "Statv2SessionBot");
-        if (table != null)
-            table.Columns.Find(c => c.Name == "Statv2SessionID").IsPrimaryKey = true;
-        table = result.GetTables().Find(t => t.Name == "Statv2UserAgents");
-        if (table != null)
-            table.Columns.Find(c => c.Name == "Statv2UserAgentsID").IsPrimaryKey = true;
-
-        //For EcomProducts Remove ProductAutoID column from schema
-        Table ecomProductsTable = result.GetTables().Find(t => t.Name == "EcomProducts");
-        if (ecomProductsTable != null)
-        {
-            ecomProductsTable.Columns.RemoveAll(c => c.Name == "ProductAutoID");
-        }
-        Table ecomAssortmentPermissionsTable = result.GetTables().Find(t => t.Name == "EcomAssortmentPermissions");
-        if (ecomAssortmentPermissionsTable != null)
-        {
-            ecomAssortmentPermissionsTable.AddColumn(new SqlColumn(("AssortmentPermissionCustomerNumber"), typeof(string), SqlDbType.NVarChar, ecomAssortmentPermissionsTable, -1, false, false, true));
-            ecomAssortmentPermissionsTable.AddColumn(new SqlColumn(("AssortmentPermissionExternalID"), typeof(string), SqlDbType.NVarChar, ecomAssortmentPermissionsTable, -1, false, false, true));
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Gets source or destination schema for Ecom Provider
-    /// </summary>
-    /// <param name="getForDestination">true to get Destination schema, false to get Source schema</param>
-    /// <returns></returns>
-    public Schema GetSchema(bool getForDestination)
-    {
         Schema result = GetDynamicwebSourceSchema();
         List<string> tablestToKeep = new()
         { "EcomProducts", "EcomManufacturers", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions",
@@ -317,6 +263,61 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
             }
         }
         return result;
+    }
+
+    private Schema GetDynamicwebSourceSchema()
+    {
+        Schema result = GetSqlSourceSchema(Connection);
+        //set key for AccessUserTable
+        if (UserKeyField != null)
+        {
+            Column keyColumn = result.GetTables().Find(t => t.Name == "AccessUser").Columns.Find(c => c.Name == UserKeyField);
+            if (keyColumn != null)
+                keyColumn.IsPrimaryKey = true;
+        }
+
+        //Set key for other tables that are missing keys in the database
+        var table = result.GetTables().FirstOrDefault(t => t.Name == "Ecom7Tree");
+        if (table != null)
+        {
+            table.Columns.Find(c => c.Name == "id").IsPrimaryKey = true;
+        }
+        if (result.GetTables().Exists(t => t.Name.Contains("Ipaper")))
+        {
+            UpdateIPaperTables(result);
+        }
+        table = result.GetTables().Find(t => t.Name == "Statv2SessionBot");
+        if (table != null)
+            table.Columns.Find(c => c.Name == "Statv2SessionID").IsPrimaryKey = true;
+        table = result.GetTables().Find(t => t.Name == "Statv2UserAgents");
+        if (table != null)
+            table.Columns.Find(c => c.Name == "Statv2UserAgentsID").IsPrimaryKey = true;
+
+        //For EcomProducts Remove ProductAutoID column from schema
+        Table ecomProductsTable = result.GetTables().Find(t => t.Name == "EcomProducts");
+        if (ecomProductsTable != null)
+        {
+            ecomProductsTable.Columns.RemoveAll(c => c.Name == "ProductAutoID");
+        }
+        Table ecomAssortmentPermissionsTable = result.GetTables().Find(t => t.Name == "EcomAssortmentPermissions");
+        if (ecomAssortmentPermissionsTable != null)
+        {
+            ecomAssortmentPermissionsTable.AddColumn(new SqlColumn(("AssortmentPermissionCustomerNumber"), typeof(string), SqlDbType.NVarChar, ecomAssortmentPermissionsTable, -1, false, false, true));
+            ecomAssortmentPermissionsTable.AddColumn(new SqlColumn(("AssortmentPermissionExternalID"), typeof(string), SqlDbType.NVarChar, ecomAssortmentPermissionsTable, -1, false, false, true));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Gets source or destination schema for Ecom Provider
+    /// </summary>
+    /// <param name="getForDestination">true to get Destination schema, false to get Source schema</param>
+    /// <returns></returns>
+    [Obsolete("Use GetOriginalSourceSchema()")]
+    public Schema GetSchema(bool getForDestination)
+    {
+        return GetOriginalSourceSchema();
     }
 
     private void UpdateIPaperTables(Schema schema)
@@ -380,29 +381,17 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
 
     public override Schema GetOriginalDestinationSchema()
     {
-        return GetSchema(true);
+        return GetOriginalSourceSchema();
     }
 
     public override void OverwriteSourceSchemaToOriginal()
     {
-        Schema = GetSchema(false);
+        Schema = GetOriginalSourceSchema();
     }
 
     public override void OverwriteDestinationSchemaToOriginal()
     {
-        Schema = GetSchema(true);
-    }
-
-    Schema ISource.GetSchema()
-    {
-        Schema ??= GetSchema(false);
-        return Schema;
-    }
-
-    Schema IDestination.GetSchema()
-    {
-        Schema ??= GetSchema(true);
-        return Schema;
+        Schema = GetOriginalSourceSchema();
     }
 
     public override Schema GetSchema()
@@ -606,11 +595,13 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
         }
         return "";
     }
+
     public override string ValidateSourceSettings()
     {
         return null;
     }
-    public new virtual void SaveAsXml(XmlTextWriter xmlTextWriter)
+
+    public override void SaveAsXml(XmlTextWriter xmlTextWriter)
     {
         xmlTextWriter.WriteElementString("RemoveMissingAfterImport", RemoveMissingAfterImport.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("RemoveMissingAfterImportDestinationTablesOnly", RemoveMissingAfterImportDestinationTablesOnly.ToString(CultureInfo.CurrentCulture));
@@ -641,6 +632,7 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
         xmlTextWriter.WriteElementString("SkipFailingRows", SkipFailingRows.ToString(CultureInfo.CurrentCulture));
         GetSchema().SaveAsXml(xmlTextWriter);
     }
+
     public override void UpdateSourceSettings(ISource source)
     {
         EcomProvider newProvider = (EcomProvider)source;
@@ -671,11 +663,13 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
         RemoveMissingAfterImport = newProvider.RemoveMissingAfterImport;
         RemoveMissingAfterImportDestinationTablesOnly = newProvider.RemoveMissingAfterImportDestinationTablesOnly;
     }
+
     public override void UpdateDestinationSettings(IDestination destination)
     {
         ISource newProvider = (ISource)destination;
         UpdateSourceSettings(newProvider);
     }
+
     public override string Serialize()
     {
         XDocument document = new XDocument(new XDeclaration("1.0", "utf-8", string.Empty));
@@ -721,7 +715,8 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
         UseStrictPrimaryKeyMatching = true;
         CreateMissingGoups = true;
     }
-    public new ISourceReader GetReader(Mapping mapping)
+
+    public override ISourceReader GetReader(Mapping mapping)
     {
         return new EcomSourceReader(mapping, Connection, GetGroupNamesForVariantOptions, GetManufacturerNamesForProducts, GetGroupNamesForProduct, GetVariantGroupNamesForProduct, GetRelatedProductsByName, GetRelatedProductGroupsByName);
     }
@@ -729,48 +724,92 @@ public class EcomProvider : BaseSqlProvider, ISource, IDestination, IParameterOp
     public override void OrderTablesInJob(Job job, bool isSource)
     {
         MappingCollection tables = new MappingCollection();
-        if (GetMappingsByName(job.Mappings, "EcomLanguages") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomLanguages"));
-        if (GetMappingsByName(job.Mappings, "EcomGroups") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomGroups"));
-        if (GetMappingsByName(job.Mappings, "EcomManufacturers") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomManufacturers"));
-        if (GetMappingsByName(job.Mappings, "EcomVariantGroups") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomVariantGroups"));
-        if (GetMappingsByName(job.Mappings, "EcomVariantsOptions") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomVariantsOptions"));
-        if (GetMappingsByName(job.Mappings, "EcomProducts") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomProducts"));
-        if (GetMappingsByName(job.Mappings, "EcomProductItems") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomProductItems"));
-        if (GetMappingsByName(job.Mappings, "EcomProductsRelated") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomProductsRelated"));
-        if (GetMappingsByName(job.Mappings, "EcomStockUnit") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomStockUnit"));
-        if (GetMappingsByName(job.Mappings, "EcomDetails") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomDetails"));
-        if (GetMappingsByName(job.Mappings, "EcomProductCategoryFieldValue") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomProductCategoryFieldValue"));
-        if (GetMappingsByName(job.Mappings, "EcomPrices") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomPrices"));
-        if (GetMappingsByName(job.Mappings, "EcomAssortments") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomAssortments"));
-        if (GetMappingsByName(job.Mappings, "EcomAssortmentPermissions") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomAssortmentPermissions"));
-        if (GetMappingsByName(job.Mappings, "EcomAssortmentGroupRelations") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomAssortmentGroupRelations"));
-        if (GetMappingsByName(job.Mappings, "EcomAssortmentProductRelations") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomAssortmentProductRelations"));
-        if (GetMappingsByName(job.Mappings, "EcomAssortmentShopRelations") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomAssortmentShopRelations"));
-        if (GetMappingsByName(job.Mappings, "EcomVariantOptionsProductRelation") != null)
-            tables.AddRange(GetMappingsByName(job.Mappings, "EcomVariantOptionsProductRelation"));
+
+        var mappings = GetMappingsByName(job.Mappings, "EcomLanguages", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomGroups", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomManufacturers", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomVariantGroups", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomVariantsOptions", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomProducts", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomProductItems", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomProductsRelated", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomStockUnit", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomDetails", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomProductCategoryFieldValue", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomPrices", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomAssortments", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomAssortmentPermissions", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomAssortmentGroupRelations", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomAssortmentProductRelations", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomAssortmentShopRelations", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomVariantOptionsProductRelation", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
         job.Mappings = tables;
     }
 
-    internal static IEnumerable<Mapping> GetMappingsByName(MappingCollection collection, string name)
+    internal static IEnumerable<Mapping> GetMappingsByName(MappingCollection collection, string name, bool isSource)
     {
-        return collection.FindAll(map => map.DestinationTable.Name == name);
+        if (isSource)
+        {
+            return collection.FindAll(map => map.SourceTable != null && map.SourceTable.Name == name);
+        }
+        else
+        {
+            return collection.FindAll(map => map.DestinationTable != null && map.DestinationTable.Name == name);
+        }
     }
 
     public override bool RunJob(Job job)
