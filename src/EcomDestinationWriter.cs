@@ -3,6 +3,7 @@ using Dynamicweb.Core;
 using Dynamicweb.Data;
 using Dynamicweb.DataIntegration.Integration;
 using Dynamicweb.DataIntegration.ProviderHelpers;
+using Dynamicweb.Ecommerce.International;
 using Dynamicweb.Ecommerce.Stocks;
 using Dynamicweb.Logging;
 using System;
@@ -278,30 +279,32 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 switch (table.Name)
                 {
                     case "EcomVariantGroups":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "VariantGroupID");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "VariantGroupLanguageID");
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantGroupID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantGroupLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
                         break;
                     case "EcomVariantsOptions":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "VariantOptionID");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "VariantOptionLanguageID");
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
                         break;
                     case "EcomProducts":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantID");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductID");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductLanguageID");
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductVariantID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductID", typeof(string), SqlDbType.NVarChar, null, 30, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductDefaultShopId", typeof(string), SqlDbType.NVarChar, null, 255, false, false, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantProdCounter");
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantGroupCounter");
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantCounter");
                         break;
                     case "EcomProductCategoryFieldValue":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "FieldValueProductId");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "FieldValueProductVariantId");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "FieldValueProductLanguageId");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "FieldValueFieldCategoryId");
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueFieldCategoryId", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductId", typeof(string), SqlDbType.NVarChar, null, 30, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductVariantId", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductLanguageId", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
                         break;
                     case "EcomPrices":
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "PriceID");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "PriceCurrency");
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceCurrency", typeof(string), SqlDbType.NVarChar, null, 3, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceShopId", typeof(string), SqlDbType.NVarChar, null, 255, false, false, false);
                         break;
                     case "EcomGroups":
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "GroupLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
@@ -324,6 +327,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         break;
                     case "EcomDetails":
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "DetailID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DetailLanguageId", typeof(string), SqlDbType.NVarChar, null, 50, false, false, false);
                         break;
                     case "EcomAssortmentPermissions":
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentPermissionAccessUserID", typeof(string), SqlDbType.Int, null, -1, false, true, false);
@@ -331,6 +335,27 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     case "EcomVariantOptionsProductRelation":
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionsProductRelationProductID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionsProductRelationVariantID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        break;
+                    case "EcomAssortments":
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
+                        break;
+                    case "EcomAssortmentShopRelations":
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentShopRelationShopID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        break;
+                    case "EcomCurrencies":
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CurrencyCode", typeof(string), SqlDbType.NVarChar, null, 3, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CurrencyLanguageId", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
+                        break;
+                    case "EcomCountries":
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryCode2", typeof(string), SqlDbType.NVarChar, null, 2, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryCultureInfo", typeof(string), SqlDbType.NVarChar, null, 15, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryRegionCode", typeof(string), SqlDbType.NVarChar, null, 3, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "CountryVAT");
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "CountryCode3");
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "CountryCurrencyCode");
+                        break;
+                    case "EcomStockLocation":
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationName", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
                         break;
                 }
                 List<Mapping> tableMappings = null;
@@ -1126,6 +1151,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             case "EcomStockUnit":
                 WriteStockUnits(row, columnMappings, dataRow, mapping);
                 break;
+            case "EcomCountries":
+                WriteCountries(row, columnMappings, dataRow, mapping);
+                break;
         }
 
         foreach (ColumnMapping columnMapping in mappingColumns)
@@ -1863,7 +1891,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private void WriteStockUnits(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow, Mapping mapping)
     {
         if (!columnMappings.TryGetValue("StockUnitId", out _))
-        {            
+        {
             if (columnMappings.TryGetValue("StockUnitProductID", out var stockUnitProductIDColumn) && columnMappings.TryGetValue("StockUnitVariantID", out var stockUnitVariantIDColumn))
             {
                 mapping.AddMapping(mapping.SourceTable.Columns.FirstOrDefault(), mapping.DestinationTable.Columns.Where(obj => obj.Name.Equals("StockUnitId", StringComparison.OrdinalIgnoreCase)).FirstOrDefault());
@@ -1879,6 +1907,40 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 if (!string.IsNullOrEmpty(productBaseUnitOfMeasure))
                 {
                     dataRow["StockUnitId"] = productBaseUnitOfMeasure;
+                }
+            }
+        }
+    }
+
+    private void WriteCountries(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow, Mapping mapping)
+    {
+        if (columnMappings.TryGetValue("CountryCode2", out var countryCode2Column))
+        {
+            if (!columnMappings.TryGetValue("CountryCultureInfo", out _))
+            {
+                dataRow["CountryCultureInfo"] = "";
+            }
+
+            var countryCode2 = row[countryCode2Column.SourceColumn?.Name].ToString();
+            GlobalISO dwISO = GlobalISO.GetGlobalISOByISOCode2(countryCode2);
+            if (dwISO != null)
+            {
+                if (!columnMappings.TryGetValue("CountryVAT", out _))
+                {
+                    mapping.AddMapping(mapping.SourceTable.Columns.FirstOrDefault(), mapping.DestinationTable.Columns.Where(obj => obj.Name.Equals("CountryVAT", StringComparison.OrdinalIgnoreCase)).FirstOrDefault());
+                    dataRow["CountryVAT"] = Converter.ToDouble(dwISO.Vat);
+                }
+
+                if (!columnMappings.TryGetValue("CountryCode3", out _))
+                {
+                    mapping.AddMapping(mapping.SourceTable.Columns.FirstOrDefault(), mapping.DestinationTable.Columns.Where(obj => obj.Name.Equals("CountryCode3", StringComparison.OrdinalIgnoreCase)).FirstOrDefault());
+                    dataRow["CountryCode3"] = dwISO.Code3;
+                }
+
+                if (!columnMappings.TryGetValue("CountryCurrencyCode", out _))
+                {
+                    mapping.AddMapping(mapping.SourceTable.Columns.FirstOrDefault(), mapping.DestinationTable.Columns.Where(obj => obj.Name.Equals("CountryCurrencyCode", StringComparison.OrdinalIgnoreCase)).FirstOrDefault());
+                    dataRow["CountryCurrencyCode"] = dwISO.CurrencySymbol;
                 }
             }
         }
