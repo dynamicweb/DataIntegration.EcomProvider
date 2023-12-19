@@ -208,9 +208,12 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
     {
         Schema result = GetDynamicwebSourceSchema();
         List<string> tablestToKeep = new()
-        { "EcomProducts", "EcomManufacturers", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions",
-                "EcomProductsRelated", "EcomProductItems", "EcomStockUnit", "EcomDetails","EcomProductCategoryFieldValue", "EcomLanguages", "EcomPrices",
-                "EcomAssortmentGroupRelations", "EcomAssortmentPermissions", "EcomAssortmentProductRelations", "EcomAssortments", "EcomAssortmentShopRelations", "EcomVariantOptionsProductRelation"};
+        { 
+            "EcomProducts", "EcomManufacturers", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions",
+            "EcomProductsRelated", "EcomProductItems", "EcomStockUnit", "EcomDetails","EcomProductCategoryFieldValue", "EcomLanguages", "EcomPrices",
+            "EcomAssortmentGroupRelations", "EcomAssortmentPermissions", "EcomAssortmentProductRelations", "EcomAssortments", "EcomAssortmentShopRelations", 
+            "EcomVariantOptionsProductRelation", "EcomCurrencies", "EcomCountries", "EcomStockLocation"
+        };
         List<Table> tablesToRemove = new();
         foreach (Table table in result.GetTables())
         {
@@ -729,6 +732,18 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         if (mappings != null)
             tables.AddRange(mappings);
 
+        mappings = GetMappingsByName(job.Mappings, "EcomCountries", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomCurrencies", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomStockLocation", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
         mappings = GetMappingsByName(job.Mappings, "EcomGroups", isSource);
         if (mappings != null)
             tables.AddRange(mappings);
@@ -828,26 +843,67 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
 
         try
         {
-            if (IsFirstJobRun)
-            {
-                Writer = new EcomDestinationWriter(job, Connection, DeactivateMissingProducts, null, RemoveMissingAfterImport, Logger,
-                UpdateOnlyExistingProducts, DefaultLanguage, DiscardDuplicates, PartialUpdate, RemoveMissingAfterImportDestinationTablesOnly, UseStrictPrimaryKeyMatching,
-                CreateMissingGoups, SkipFailingRows, UseProductIdFoundByNumber, IgnoreEmptyCategoryFieldValues);
-                if (!string.IsNullOrEmpty(Shop))
-                    Writer.DefaultShop = Shop;
-            }
-            else
-            {
-                if (Writer == null)
-                {
-                    throw new Exception($"Can not find Ecom");
-                }
-            }
-
             foreach (Mapping mapping in job.Mappings)
             {
-                if (mapping.Active && mapping.GetColumnMappings().Count > 0)
+                var columnMappings = mapping.GetColumnMappings();
+
+                if (mapping.Active && columnMappings.Count > 0)
                 {
+                    if (!string.IsNullOrEmpty(defaultLanguage))
+                    {
+                        string destinationColumnNameForLanguageId = MappingExtensions.GetLanguageIdColumnName(mapping.DestinationTable.Name);
+                        if (!string.IsNullOrEmpty(destinationColumnNameForLanguageId) && !columnMappings.Any(obj => obj.Active && obj.DestinationColumn.Name.Equals(destinationColumnNameForLanguageId, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            Column randomColumn = mapping.SourceTable.Columns.First();
+                            var languageColumnMapping = mapping.AddMapping(randomColumn, mapping.DestinationTable.Columns.Find(c => string.Compare(c.Name, MappingExtensions.GetLanguageIdColumnName(mapping.DestinationTable.Name), true) == 0), true);
+                            languageColumnMapping.ScriptType = ScriptType.Constant;
+                            languageColumnMapping.ScriptValue = defaultLanguage;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(Shop))
+                    {
+                        string destinationColumnNameForShopId = MappingExtensions.GetShopIdColumnName(mapping.DestinationTable.Name);
+                        if (!string.IsNullOrEmpty(destinationColumnNameForShopId) && !columnMappings.Any(obj => obj.Active && obj.DestinationColumn.Name.Equals(destinationColumnNameForShopId, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            Column randomColumn = mapping.SourceTable.Columns.First();
+                            var shopColumnMapping = mapping.AddMapping(randomColumn, mapping.DestinationTable.Columns.Find(c => string.Compare(c.Name, MappingExtensions.GetShopIdColumnName(mapping.DestinationTable.Name), true) == 0));
+                            shopColumnMapping.ScriptType = ScriptType.Constant;
+                            shopColumnMapping.ScriptValue = Shop;
+                        }
+                    }
+
+                    var ecomProductTableMapping = job.Mappings.Where(obj => obj != null && obj.Active && obj.DestinationTable != null && obj.DestinationTable.Name.Equals("EcomProducts", StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+                    if (ecomProductTableMapping != null)
+                    {
+                        if (ecomProductTableMapping.DestinationTable != null && !ecomProductTableMapping.GetColumnMappings().Any(obj => obj.DestinationColumn != null && obj.DestinationColumn.Name.Equals("ProductVariantId", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            Column randomColumn = mapping.SourceTable.Columns.First();
+                            var shopColumnMapping = mapping.AddMapping(randomColumn, ecomProductTableMapping.DestinationTable.Columns.Find(c => string.Compare(c.Name, "ProductVariantId", true) == 0), true);
+                            shopColumnMapping.ScriptType = ScriptType.Constant;
+                            shopColumnMapping.ScriptValue = string.Empty;
+                        }
+                    }
+
+                    if (IsFirstJobRun)
+                    {
+                        Writer = new EcomDestinationWriter(job, Connection, DeactivateMissingProducts, null, RemoveMissingAfterImport, Logger,
+                        UpdateOnlyExistingProducts, DefaultLanguage, DiscardDuplicates, PartialUpdate, RemoveMissingAfterImportDestinationTablesOnly, UseStrictPrimaryKeyMatching,
+                        CreateMissingGoups, SkipFailingRows, UseProductIdFoundByNumber, IgnoreEmptyCategoryFieldValues);
+                        if (!string.IsNullOrEmpty(Shop))
+                        {
+                            Writer.DefaultShop = Shop;
+                        }
+                    }
+                    else
+                    {
+                        if (Writer == null)
+                        {
+                            throw new Exception($"Can not find Ecom");
+                        }
+                    }
+
+
                     Logger.Log("Starting import to temporary table for " + mapping.DestinationTable.Name + ".");
                     using (var reader = job.Source.GetReader(mapping))
                     {
@@ -935,10 +991,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         }
         finally
         {
-            if (exception != null)
-            {
-                Writer?.Close();
-            }
+            Writer?.Close();
         }
         if (IsFirstJobRun)
         {
