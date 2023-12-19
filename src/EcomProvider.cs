@@ -991,10 +991,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         }
         finally
         {
-            if (exception != null)
-            {
-                Writer?.Close();
-            }
+            Writer?.Close();
         }
         if (IsFirstJobRun)
         {
