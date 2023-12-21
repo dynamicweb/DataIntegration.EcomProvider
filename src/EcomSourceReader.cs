@@ -71,7 +71,11 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
         return rowValues;
     }
 
-    public EcomSourceReader(Mapping mapping, SqlConnection connection, bool getGroupNamesForVariantOptions, bool getManufacturerNamesForProducts, bool getGroupNamesForProduct, bool getVariantGroupNamesForProduct, bool getRelatedProductsByName, bool getRelatedProductGroupsByName) : base(mapping, connection)
+    public EcomSourceReader(Mapping mapping, SqlConnection connection, bool getGroupNamesForVariantOptions, bool getManufacturerNamesForProducts, bool getGroupNamesForProduct, bool getVariantGroupNamesForProduct, bool getRelatedProductsByName, bool getRelatedProductGroupsByName) : this(mapping, connection, getGroupNamesForVariantOptions, getManufacturerNamesForProducts, getGroupNamesForProduct, getVariantGroupNamesForProduct, getRelatedProductsByName, getRelatedProductGroupsByName, "", "")
+    {
+    }
+
+    public EcomSourceReader(Mapping mapping, SqlConnection connection, bool getGroupNamesForVariantOptions, bool getManufacturerNamesForProducts, bool getGroupNamesForProduct, bool getVariantGroupNamesForProduct, bool getRelatedProductsByName, bool getRelatedProductGroupsByName, string sourceLanguage, string sourceShop) : base(mapping, connection)
     {
         this.getGroupNamesForVariantOptions = getGroupNamesForVariantOptions;
         this.getRelatedProductGroupsByName = getRelatedProductGroupsByName;
@@ -79,6 +83,8 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
         this.getVariantGroupNamesForProduct = getVariantGroupNamesForProduct;
         this.getGroupNamesForProduct = getGroupNamesForProduct;
         this.getManufacturerNamesForProducts = getManufacturerNamesForProducts;
+        this.sourceLanguage = sourceLanguage;
+        this.sourceShop = sourceShop;
         DoInitialization(mapping, connection);
     }
 
@@ -88,6 +94,8 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
     private readonly bool getVariantGroupNamesForProduct;
     private readonly bool getRelatedProductsByName;
     private readonly bool getRelatedProductGroupsByName;
+    private readonly string sourceLanguage;
+    private readonly string sourceShop;
 
     protected void DoInitialization(Mapping mapping, SqlConnection connection)
     {
@@ -128,10 +136,33 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
         {
             ColumnMappingCollection columnmappings = mapping.GetColumnMappings();
             if (columnmappings.Count == 0)
+            {
                 return;
+            }
+
             string columns = GetColumns();
             string fromTables = GetFromTables();
             string sql = "select * from (select " + columns + " from  " + fromTables + ") as result";
+
+            string sqlLanguageWhere = "";
+            if (!string.IsNullOrEmpty(sourceLanguage))
+            {
+                string columnNameForLanguageId = MappingExtensions.GetLanguageIdColumnName(mapping.SourceTable.Name);
+                if (!string.IsNullOrEmpty(columnNameForLanguageId) && !IsColumnUsedInMappingConditions(columnNameForLanguageId))
+                {
+                    sqlLanguageWhere = $" {columnNameForLanguageId} = '{sourceLanguage}' ";
+                }
+            }
+
+            string sqlShopWhere = "";
+            if (!string.IsNullOrEmpty(sourceShop))
+            {
+                string columnNameForShopId = MappingExtensions.GetShopIdColumnName(mapping.SourceTable.Name);
+                if (!string.IsNullOrEmpty(columnNameForShopId) && !IsColumnUsedInMappingConditions(columnNameForShopId))
+                {
+                    sqlShopWhere = $" {columnNameForShopId} = '{sourceShop}' ";
+                }
+            }
 
             List<SqlParameter> parameters = new List<SqlParameter>();
             string conditionalsSql = MappingExtensions.GetConditionalsSql(out parameters, mapping.Conditionals, false, false);
@@ -139,9 +170,34 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
             {
                 conditionalsSql = conditionalsSql.Substring(0, conditionalsSql.Length - 4);
                 sql = sql + " where " + conditionalsSql;
+
+                if (!string.IsNullOrEmpty(sqlLanguageWhere))
+                {
+                    sql += $" AND {sqlLanguageWhere} ";
+                }
+                if (!string.IsNullOrEmpty(sqlShopWhere))
+                {
+                    sql += $" AND {sqlShopWhere} ";
+                }
+
                 foreach (SqlParameter p in parameters)
+                {
                     _command.Parameters.Add(p);
+                }
             }
+            else if (!string.IsNullOrEmpty(sqlLanguageWhere) && !string.IsNullOrEmpty(sqlShopWhere))
+            {
+                sql += $" where {sqlLanguageWhere} AND {sqlShopWhere} ";
+            }
+            else if (!string.IsNullOrEmpty(sqlLanguageWhere))
+            {
+                sql += $" where {sqlLanguageWhere} ";
+            }
+            else if (!string.IsNullOrEmpty(sqlShopWhere))
+            {
+                sql += $" where {sqlShopWhere} ";
+            }
+
             _command.CommandText = sql;
             _reader = _command.ExecuteReader();
         }
