@@ -3,6 +3,7 @@ using Dynamicweb.DataIntegration.Integration;
 using Dynamicweb.DataIntegration.Integration.Interfaces;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 
@@ -50,6 +51,23 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
             }
         }
         return ret;
+    }
+
+    private string GetColumnsFromSettings()
+    {
+        string result = string.Empty;
+        string columnNameForLanguageId = MappingExtensions.GetLanguageIdColumnName(mapping.SourceTable.Name);
+        if (!string.IsNullOrEmpty(columnNameForLanguageId) && !IsColumnUsedInMappingConditions(columnNameForLanguageId) && !Columns.ContainsKey(columnNameForLanguageId.ToLower()))
+        {
+            result = $"[{columnNameForLanguageId}], ";
+        }
+
+        string columnNameForShopId = MappingExtensions.GetShopIdColumnName(mapping.SourceTable.Name);
+        if (!string.IsNullOrEmpty(columnNameForShopId) && !IsColumnUsedInMappingConditions(columnNameForShopId) && !Columns.ContainsKey(columnNameForShopId.ToLower()))
+        {
+            result += $"[{columnNameForShopId}], ";
+        }
+        return result;
     }
 
     protected bool IsColumnUsedInMappingConditions(string columnName)
@@ -482,6 +500,7 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
                 result += GetColumnsFromMappingConditions();
                 break;
         }
+        result += GetColumnsFromSettings();
         result = result.Substring(0, result.Length - 2);
         return result;
     }
