@@ -5,7 +5,6 @@ using Dynamicweb.DataIntegration.ProviderHelpers;
 using Dynamicweb.Extensibility.AddIns;
 using Dynamicweb.Extensibility.Editors;
 using Dynamicweb.Logging;
-using Microsoft.CodeAnalysis;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -23,7 +22,20 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
     private Schema Schema;
     private bool IsFirstJobRun = true;
 
-    [AddInParameter("Get groups for variant options by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
+    #region Source AddIns
+    [AddInParameter("Source language")]
+    [AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Select only products in this language.")]
+    [AddInParameterGroup("Source")]
+    public string SourceLanguage { get; set; }
+
+    [AddInParameter("Source shop")]
+    [AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Select only products from this shop.")]
+    [AddInParameterGroup("Source")]
+    public string SourceShop { get; set; }
+
+    [AddInParameter("Get groups for variant options by:")]
+    [AddInParameterEditor(typeof(RadioParameterEditor), "")]
+    [AddInParameterGroup("Source")]
     public string GroupsForVariantOptionsBy
     {
         get
@@ -37,7 +49,9 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
     }
     public bool GetGroupNamesForVariantOptions { get; set; }
 
-    [AddInParameter("Get manufacturer for products by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
+    [AddInParameter("Get manufacturer for products by:")]
+    [AddInParameterEditor(typeof(RadioParameterEditor), "")]
+    [AddInParameterGroup("Source")]
     public string ManufacturerForProductsBy
     {
         get
@@ -52,7 +66,9 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
     }
     public bool GetManufacturerNamesForProducts { get; set; }
 
-    [AddInParameter("Get variant groups for products by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
+    [AddInParameter("Get variant groups for products by:")]
+    [AddInParameterEditor(typeof(RadioParameterEditor), "")]
+    [AddInParameterGroup("Source")]
     public string VariantGroupsForProductsBy
     {
         get
@@ -62,7 +78,10 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         set { GetVariantGroupNamesForProduct = value == "Name"; }
     }
     public bool GetVariantGroupNamesForProduct { get; set; }
-    [AddInParameter("Get groups for products by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
+
+    [AddInParameter("Get groups for products by:")]
+    [AddInParameterEditor(typeof(RadioParameterEditor), "")]
+    [AddInParameterGroup("Source")]
     public string GroupsForProductsBy
     {
         get
@@ -72,7 +91,10 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         set { GetGroupNamesForProduct = value == "Name"; }
     }
     public bool GetGroupNamesForProduct { get; set; }
-    [AddInParameter("Get related products by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
+
+    [AddInParameter("Get related products by:")]
+    [AddInParameterEditor(typeof(RadioParameterEditor), "")]
+    [AddInParameterGroup("Source")]
     public string RelatedProductsBy
     {
         get
@@ -82,7 +104,10 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         set { GetRelatedProductsByName = value == "Name"; }
     }
     public bool GetRelatedProductsByName { get; set; }
-    [AddInParameter("Get related product groups by:"), AddInParameterEditor(typeof(RadioParameterEditor), ""), AddInParameterGroup("Source")]
+
+    [AddInParameter("Get related product groups by:")]
+    [AddInParameterEditor(typeof(RadioParameterEditor), "")]
+    [AddInParameterGroup("Source")]
     public string RelatedProductGroupsBy
     {
         get
@@ -91,11 +116,15 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         }
         set { GetRelatedProductGroupsByName = value == "Name"; }
     }
-
     public bool GetRelatedProductGroupsByName { get; set; }
+    #endregion
 
+    #region Destination AddIns
     private string defaultLanguage = null;
-    [AddInParameter("Default Language"), AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Set the default language for the imported products"), AddInParameterGroup("Destination"), AddInParameterOrder(10)]
+    [AddInParameter("Default Language")]
+    [AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Set the default language for the imported products")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(10)]
     public string DefaultLanguage
     {
         get
@@ -118,62 +147,115 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         }
     }
 
-    [AddInParameter("Shop"), AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Set a shop for the imported products"), AddInParameterGroup("Destination"), AddInParameterOrder(20)]
+    [AddInParameter("Shop")]
+    [AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Set a shop for the imported products")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(20)]
     public string Shop { get; set; }
 
-    [AddInParameter("Insert only new records"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Inserts new records present in the source, but does not update existing records"), AddInParameterGroup("Destination"), AddInParameterOrder(23)]
+    [AddInParameter("Insert only new records")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Inserts new records present in the source, but does not update existing records")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(23)]
     public bool InsertOnlyNewRecords { get; set; }
 
-    [AddInParameter("Update only existing records"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When this option is ON the imported rows are updated but not inserted. When OFF rows are updated and inserted"), AddInParameterGroup("Destination"), AddInParameterOrder(25)]
+    [AddInParameter("Update only existing records")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When this option is ON the imported rows are updated but not inserted. When OFF rows are updated and inserted")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(25)]
     public bool UpdateOnlyExistingRecords { get; set; }
 
-    [AddInParameter("Deactivate missing products"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When ON missing products are deactivated. When OFF no action is taken. When Delete incoming rows is ON, Deactivate missing products is skipped. The Hide deactivated products option is used only when Deactivate missing products is ON"), AddInParameterGroup("Destination"), AddInParameterOrder(30)]
+    [AddInParameter("Deactivate missing products")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When ON missing products are deactivated. When OFF no action is taken. When Delete incoming rows is ON, Deactivate missing products is skipped. The Hide deactivated products option is used only when Deactivate missing products is ON")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(30)]
     public bool DeactivateMissingProducts { get; set; }
 
-    [AddInParameter("Remove missing rows after import in the destination tables only"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes rows not present in the import source - excluding related tabled"), AddInParameterGroup("Destination"), AddInParameterOrder(35)]
+    [AddInParameter("Remove missing rows after import in the destination tables only")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes rows not present in the import source - excluding related tabled")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(35)]
     public bool RemoveMissingAfterImportDestinationTablesOnly { get; set; }
 
-    [AddInParameter("Use strict primary key matching"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=This import affects ONLY records which match the selected primary key. If not checked the provider tries the following: Look at ProductID, Look at ProductNumber, Look at ProductName. If none match, create new record"), AddInParameterGroup("Destination"), AddInParameterOrder(38)]
+    [AddInParameter("Use strict primary key matching")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=This import affects ONLY records which match the selected primary key. If not checked the provider tries the following: Look at ProductID, Look at ProductNumber, Look at ProductName. If none match, create new record")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(38)]
     public bool UseStrictPrimaryKeyMatching { get; set; }
 
-    [AddInParameter("Remove missing rows after import"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Removes rows from the destination and relation tables. This option takes precedence"), AddInParameterGroup("Destination"), AddInParameterOrder(40)]
+    [AddInParameter("Remove missing rows after import")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Removes rows from the destination and relation tables. This option takes precedence")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(40)]
     public bool RemoveMissingAfterImport { get; set; }
 
-    [AddInParameter("Update only existing products"), AddInParameterEditor(typeof(YesNoParameterEditor), ""), AddInParameterGroup("Destination"), AddInParameterOrder(41)]
+    [AddInParameter("Update only existing products")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(41)]
     public bool UpdateOnlyExistingProducts { get; set; }
 
-    [AddInParameter("Create missing groups"), AddInParameterEditor(typeof(YesNoParameterEditor), ""), AddInParameterGroup("Destination"), AddInParameterOrder(42)]
+    [AddInParameter("Create missing groups")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(42)]
     public bool CreateMissingGoups { get; set; }
 
-    [AddInParameter("Delete incoming rows"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes existing rows present in the import source. When Delete incoming rows is ON, the following options are skipped: Update only existing products, Update only existing records, Deactivate missing products, Remove missing rows after import, and Delete products / groups for languages included in input"), AddInParameterGroup("Destination"), AddInParameterOrder(50)]
+    [AddInParameter("Delete incoming rows")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes existing rows present in the import source. When Delete incoming rows is ON, the following options are skipped: Update only existing products, Update only existing records, Deactivate missing products, Remove missing rows after import, and Delete products / groups for languages included in input")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(50)]
     public bool DeleteIncomingItems { get; set; }
 
-    [AddInParameter("Delete products/groups for languages included in input"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes products and groups only from the languages included in the import. When Delete incoming rows is ON, this option is ignored"), AddInParameterGroup("Destination"), AddInParameterOrder(60)]
+    [AddInParameter("Delete products/groups for languages included in input")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes products and groups only from the languages included in the import. When Delete incoming rows is ON, this option is ignored")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(60)]
     public bool DeleteProductsAndGroupForSpecificLanguage { get; set; }
 
-    [AddInParameter("Discard duplicates"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When ON, duplicate rows are skipped"), AddInParameterGroup("Destination")]
+    [AddInParameter("Discard duplicates")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When ON, duplicate rows are skipped")]
+    [AddInParameterGroup("Destination")]
     public bool DiscardDuplicates { get; set; }
 
-    [AddInParameter("Hide deactivated products"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When Deactivate missing products is ON, this option hides the deactivated products. If Delete incoming rows is ON, Hide deactivated products is skipped. If Deactivate missing products is OFF, Hide deactivated products is skipped"), AddInParameterGroup("Destination"), AddInParameterOrder(80)]
+    [AddInParameter("Hide deactivated products")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When Deactivate missing products is ON, this option hides the deactivated products. If Delete incoming rows is ON, Hide deactivated products is skipped. If Deactivate missing products is OFF, Hide deactivated products is skipped")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(80)]
     public bool HideDeactivatedProducts { get; set; }
 
-    [AddInParameter("User key field"), AddInParameterEditor(typeof(TextParameterEditor), ""), AddInParameterGroup("Hidden")]
+    [AddInParameter("User key field")]
+    [AddInParameterEditor(typeof(TextParameterEditor), "")]
+    [AddInParameterGroup("Hidden")]
     public string UserKeyField { get; set; }
 
-    [AddInParameter("Repositories index update"), AddInParameterEditor(typeof(DropDownParameterEditor), "multiple=true;none=true;Tooltip=Index update might affect on slower perfomance"), AddInParameterGroup("Destination"), AddInParameterOrder(80)]
+    [AddInParameter("Repositories index update")]
+    [AddInParameterEditor(typeof(DropDownParameterEditor), "multiple=true;none=true;Tooltip=Index update might affect on slower perfomance")]
+    [AddInParameterGroup("Destination")]
     public string RepositoriesIndexUpdate { get; set; }
 
-    [AddInParameter("Disable cache clearing"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=This setting disables cache clearing after import\t"), AddInParameterGroup("Destination"), AddInParameterOrder(90)]
+    [AddInParameter("Disable cache clearing")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=This setting disables cache clearing after import\t")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(90)]
     public bool DisableCacheClearing { get; set; }
 
-    [AddInParameter("Persist successful rows and skip failing rows"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Checking this box allows the activity to do partial imports by skipping problematic records and keeping the succesful ones"), AddInParameterGroup("Destination"), AddInParameterOrder(100)]
+    [AddInParameter("Persist successful rows and skip failing rows")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Checking this box allows the activity to do partial imports by skipping problematic records and keeping the succesful ones")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(100)]
     public bool SkipFailingRows { get; set; }
 
-    [AddInParameter("Use existing Product Id found by Number in Variant Products"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When checked, the values in Dynamicweb ProductId and ProductVariantID will be used at import to update products in Dynamicweb. A product is only updated if it matches the ProductNumber (in default language) of the imported row and if the Dynamicweb ProductVariantId field is not empty"), AddInParameterGroup("Destination")]
+    [AddInParameter("Use existing Product Id found by Number in Variant Products")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When checked, the values in Dynamicweb ProductId and ProductVariantID will be used at import to update products in Dynamicweb. A product is only updated if it matches the ProductNumber (in default language) of the imported row and if the Dynamicweb ProductVariantId field is not empty")]
+    [AddInParameterGroup("Destination")]
     public bool UseProductIdFoundByNumber { get; set; }
 
-    [AddInParameter("Ignore empty category field values"), AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When checked, the Ecom provider does not write empty category field values to the database"), AddInParameterGroup("Destination")]
+    [AddInParameter("Ignore empty category field values")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=When checked, the Ecom provider does not write empty category field values to the database")]
+    [AddInParameterGroup("Destination")]
     public bool IgnoreEmptyCategoryFieldValues { get; set; }
+    #endregion
 
     /// <summary>
     /// This property is used to remove rows from the EcomGroupProductRelationsTable, but only for the products that are being imported.
@@ -208,10 +290,10 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
     {
         Schema result = GetDynamicwebSourceSchema();
         List<string> tablestToKeep = new()
-        { 
+        {
             "EcomProducts", "EcomManufacturers", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions",
             "EcomProductsRelated", "EcomProductItems", "EcomStockUnit", "EcomDetails","EcomProductCategoryFieldValue", "EcomLanguages", "EcomPrices",
-            "EcomAssortmentGroupRelations", "EcomAssortmentPermissions", "EcomAssortmentProductRelations", "EcomAssortments", "EcomAssortmentShopRelations", 
+            "EcomAssortmentGroupRelations", "EcomAssortmentPermissions", "EcomAssortmentProductRelations", "EcomAssortments", "EcomAssortmentShopRelations",
             "EcomVariantOptionsProductRelation", "EcomCurrencies", "EcomCountries", "EcomStockLocation"
         };
         List<Table> tablesToRemove = new();
@@ -454,6 +536,12 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
                         Shop = node.FirstChild.Value;
                     }
                     break;
+                case "SourceShop":
+                    if (node.HasChildNodes)
+                    {
+                        SourceShop = node.FirstChild.Value;
+                    }
+                    break;
                 case "UserKeyField":
                     if (node.HasChildNodes)
                     {
@@ -500,6 +588,12 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
                     if (node.HasChildNodes)
                     {
                         DefaultLanguage = node.FirstChild.Value;
+                    }
+                    break;
+                case "SourceLanguage":
+                    if (node.HasChildNodes)
+                    {
+                        SourceLanguage = node.FirstChild.Value;
                     }
                     break;
                 case "UpdateOnlyExistingProducts":
@@ -612,6 +706,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         xmlTextWriter.WriteElementString("DeleteProductsAndGroupForSpecificLanguage", DeleteProductsAndGroupForSpecificLanguage.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("SqlConnectionString", SqlConnectionString);
         xmlTextWriter.WriteElementString("Shop", Shop);
+        xmlTextWriter.WriteElementString("SourceShop", SourceShop);
         xmlTextWriter.WriteElementString("UserKeyField", UserKeyField);
         xmlTextWriter.WriteElementString("GroupsForProductsBy", GroupsForProductsBy);
         xmlTextWriter.WriteElementString("GroupsForVariantOptionsBy", GroupsForVariantOptionsBy);
@@ -620,6 +715,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         xmlTextWriter.WriteElementString("RelatedProductsBy", RelatedProductsBy);
         xmlTextWriter.WriteElementString("VariantGroupsForProductsBy", VariantGroupsForProductsBy);
         xmlTextWriter.WriteElementString("DefaultLanguage", DefaultLanguage);
+        xmlTextWriter.WriteElementString("SourceLanguage", SourceLanguage);
         xmlTextWriter.WriteElementString("UpdateOnlyExistingProducts", UpdateOnlyExistingProducts.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("UseStrictPrimaryKeyMatching", UseStrictPrimaryKeyMatching.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("RepositoriesIndexUpdate", RepositoriesIndexUpdate);
@@ -639,14 +735,22 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
     public override void UpdateSourceSettings(ISource source)
     {
         EcomProvider newProvider = (EcomProvider)source;
-        DefaultLanguage = newProvider.DefaultLanguage;
+        SourceLanguage = newProvider.SourceLanguage;
+        SourceShop = newProvider.SourceShop;
         GetGroupNamesForProduct = newProvider.GetGroupNamesForProduct;
         GetGroupNamesForVariantOptions = newProvider.GetGroupNamesForVariantOptions;
         GetManufacturerNamesForProducts = newProvider.GetManufacturerNamesForProducts;
         GetRelatedProductGroupsByName = newProvider.GetRelatedProductGroupsByName;
         GetRelatedProductsByName = newProvider.GetRelatedProductsByName;
         GetVariantGroupNamesForProduct = newProvider.GetVariantGroupNamesForProduct;
+        SqlConnectionString = newProvider.SqlConnectionString;
+    }
+
+    public override void UpdateDestinationSettings(IDestination destination)
+    {
+        EcomProvider newProvider = (EcomProvider)destination;
         DefaultLanguage = newProvider.DefaultLanguage;
+        Shop = newProvider.Shop;
         DeactivateMissingProducts = newProvider.DeactivateMissingProducts;
         UpdateOnlyExistingProducts = newProvider.UpdateOnlyExistingProducts;
         UseStrictPrimaryKeyMatching = newProvider.UseStrictPrimaryKeyMatching;
@@ -662,15 +766,8 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         SkipFailingRows = newProvider.SkipFailingRows;
         UseProductIdFoundByNumber = newProvider.UseProductIdFoundByNumber;
         IgnoreEmptyCategoryFieldValues = newProvider.IgnoreEmptyCategoryFieldValues;
-        SqlConnectionString = newProvider.SqlConnectionString;
         RemoveMissingAfterImport = newProvider.RemoveMissingAfterImport;
         RemoveMissingAfterImportDestinationTablesOnly = newProvider.RemoveMissingAfterImportDestinationTablesOnly;
-    }
-
-    public override void UpdateDestinationSettings(IDestination destination)
-    {
-        ISource newProvider = (ISource)destination;
-        UpdateSourceSettings(newProvider);
     }
 
     public override string Serialize()
@@ -685,15 +782,12 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         root.Add(CreateParameterNode(GetType(), "Get related products by:", RelatedProductsBy));
         root.Add(CreateParameterNode(GetType(), "Get related product groups by:", RelatedProductGroupsBy));
         root.Add(CreateParameterNode(GetType(), "Default Language", DefaultLanguage));
+        root.Add(CreateParameterNode(GetType(), "Source language", SourceLanguage ?? ""));
         root.Add(CreateParameterNode(GetType(), "Deactivate missing products", DeactivateMissingProducts.ToString()));
         root.Add(CreateParameterNode(GetType(), "Delete products/groups for languages included in input", DeleteProductsAndGroupForSpecificLanguage.ToString()));
-        root.Add(Shop == null
-                     ? CreateParameterNode(GetType(), "Shop", "")
-                     : CreateParameterNode(GetType(), "Shop", Shop));
-
-        root.Add(UserKeyField == null
-                     ? CreateParameterNode(GetType(), "User key field", "")
-                     : CreateParameterNode(GetType(), "User key field", UserKeyField));
+        root.Add(CreateParameterNode(GetType(), "Shop", Shop ?? ""));
+        root.Add(CreateParameterNode(GetType(), "Source shop", SourceShop ?? ""));
+        root.Add(CreateParameterNode(GetType(), "User key field", UserKeyField ?? ""));
         root.Add(CreateParameterNode(GetType(), "Remove missing rows after import", RemoveMissingAfterImport.ToString()));
         root.Add(CreateParameterNode(GetType(), "Remove missing rows after import in the destination tables only", RemoveMissingAfterImportDestinationTablesOnly.ToString()));
         root.Add(CreateParameterNode(GetType(), "Update only existing products", UpdateOnlyExistingProducts.ToString()));
@@ -721,7 +815,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
 
     public override ISourceReader GetReader(Mapping mapping)
     {
-        return new EcomSourceReader(mapping, Connection, GetGroupNamesForVariantOptions, GetManufacturerNamesForProducts, GetGroupNamesForProduct, GetVariantGroupNamesForProduct, GetRelatedProductsByName, GetRelatedProductGroupsByName);
+        return new EcomSourceReader(mapping, Connection, GetGroupNamesForVariantOptions, GetManufacturerNamesForProducts, GetGroupNamesForProduct, GetVariantGroupNamesForProduct, GetRelatedProductsByName, GetRelatedProductGroupsByName, SourceLanguage, SourceShop);
     }
 
     public override void OrderTablesInJob(Job job, bool isSource)
@@ -1018,7 +1112,9 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         return parameterName switch
         {
             "Default Language" => GetDefaultLanguageOptions(),
+            "Source language" => GetDefaultLanguageOptions(),
             "Shop" => GetShopOptions(),
+            "Source shop" => GetShopOptions(),
             "Product index update" => new List<ParameterOption>()
                 {
                     new("Full", "Full"),
