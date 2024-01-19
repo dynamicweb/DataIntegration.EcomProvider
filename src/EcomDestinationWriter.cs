@@ -3108,6 +3108,20 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     new string[] { "ProductID", "ProductVariantID", "ProductLanguageID" });
                 EnsureMapping(ecomProductsMapping, DestinationColumnMappings["EcomProducts"], tableColumnsDictionary["EcomProducts"],
                     new string[] { "ProductVariantProdCounter", "ProductVariantGroupCounter", "ProductVariantCounter" });
+
+                // Handle LanguageId mapping
+                var columnMappings = ecomProductsMapping.GetColumnMappings();
+                IEnumerable<ColumnMapping> keyColumnMappings = columnMappings.GetKeyColumnMappings();
+                // If any Key columns are in the mappings we need to add ProductLanguageID as Key Column mapping as well
+                if (keyColumnMappings.Any() && !keyColumnMappings.Any((ColumnMapping cm) => string.Equals(cm.DestinationColumn?.Name, "ProductLanguageID", StringComparison.OrdinalIgnoreCase)))
+                {                    
+                    var languageIdMapping = columnMappings.Where(cm => cm != null && cm.Active &&
+                            cm.DestinationColumn != null && string.Equals(cm.DestinationColumn?.Name, "ProductLanguageID", StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+                    if (languageIdMapping is not null)
+                    {
+                        languageIdMapping.IsKey = true;
+                    }
+                }
             }
         }
 
@@ -3201,7 +3215,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             if (destinationColumns == null || !destinationColumns.ContainsKey(keyColumn))
             {
-                var groupKeyColumn = schemaColumns[keyColumn];
+                var groupKeyColumn = schemaColumns[keyColumn];                
                 mapping.AddMapping(groupKeyColumn, groupKeyColumn, false);
             }
         }
