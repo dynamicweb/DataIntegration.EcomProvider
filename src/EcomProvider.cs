@@ -942,19 +942,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
                 var columnMappings = mapping.GetColumnMappings();
 
                 if (mapping.Active && columnMappings.Count > 0)
-                {
-                    if (!string.IsNullOrEmpty(defaultLanguage))
-                    {
-                        string destinationColumnNameForLanguageId = MappingExtensions.GetLanguageIdColumnName(mapping.DestinationTable.Name);
-                        if (!string.IsNullOrEmpty(destinationColumnNameForLanguageId) && !columnMappings.Any(obj => obj.Active && obj.DestinationColumn.Name.Equals(destinationColumnNameForLanguageId, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            Column randomColumn = mapping.SourceTable.Columns.First();
-                            var languageColumnMapping = mapping.AddMapping(randomColumn, mapping.DestinationTable.Columns.Find(c => string.Compare(c.Name, MappingExtensions.GetLanguageIdColumnName(mapping.DestinationTable.Name), true) == 0), true);
-                            languageColumnMapping.ScriptType = ScriptType.Constant;
-                            languageColumnMapping.ScriptValue = defaultLanguage;
-                        }
-                    }
-
+                {                    
                     if (!string.IsNullOrEmpty(Shop))
                     {
                         string destinationColumnNameForShopId = MappingExtensions.GetShopIdColumnName(mapping.DestinationTable.Name);
@@ -965,19 +953,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
                             shopColumnMapping.ScriptType = ScriptType.Constant;
                             shopColumnMapping.ScriptValue = Shop;
                         }
-                    }
-
-                    var ecomProductTableMapping = job.Mappings.Where(obj => obj != null && obj.Active && obj.DestinationTable != null && obj.DestinationTable.Name.Equals("EcomProducts", StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
-                    if (ecomProductTableMapping != null)
-                    {
-                        if (ecomProductTableMapping.DestinationTable != null && !ecomProductTableMapping.GetColumnMappings().Any(obj => obj.DestinationColumn != null && obj.DestinationColumn.Name.Equals("ProductVariantId", StringComparison.OrdinalIgnoreCase)))
-                        {
-                            Column randomColumn = mapping.SourceTable.Columns.First();
-                            var shopColumnMapping = mapping.AddMapping(randomColumn, ecomProductTableMapping.DestinationTable.Columns.Find(c => string.Compare(c.Name, "ProductVariantId", true) == 0), true);
-                            shopColumnMapping.ScriptType = ScriptType.Constant;
-                            shopColumnMapping.ScriptValue = string.Empty;
-                        }
-                    }
+                    }                    
 
                     if (IsFirstJobRun)
                     {
