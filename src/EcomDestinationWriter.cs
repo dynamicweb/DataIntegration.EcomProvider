@@ -3,7 +3,6 @@ using Dynamicweb.Core;
 using Dynamicweb.Data;
 using Dynamicweb.DataIntegration.Integration;
 using Dynamicweb.DataIntegration.ProviderHelpers;
-using Dynamicweb.Ecommerce.International;
 using Dynamicweb.Ecommerce.Stocks;
 using Dynamicweb.Logging;
 using System;
@@ -1919,29 +1918,6 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (!columnMappings.TryGetValue("CountryCultureInfo", out _))
             {
                 dataRow["CountryCultureInfo"] = "";
-            }
-
-            var countryCode2 = row[countryCode2Column.SourceColumn?.Name].ToString();
-            GlobalISO dwISO = GlobalISO.GetGlobalISOByISOCode2(countryCode2);
-            if (dwISO != null)
-            {
-                if (!columnMappings.TryGetValue("CountryVAT", out _))
-                {
-                    mapping.AddMapping(mapping.SourceTable.Columns.FirstOrDefault(), mapping.DestinationTable.Columns.Where(obj => obj.Name.Equals("CountryVAT", StringComparison.OrdinalIgnoreCase)).FirstOrDefault());
-                    dataRow["CountryVAT"] = Converter.ToDouble(dwISO.Vat);
-                }
-
-                if (!columnMappings.TryGetValue("CountryCode3", out _))
-                {
-                    mapping.AddMapping(mapping.SourceTable.Columns.FirstOrDefault(), mapping.DestinationTable.Columns.Where(obj => obj.Name.Equals("CountryCode3", StringComparison.OrdinalIgnoreCase)).FirstOrDefault());
-                    dataRow["CountryCode3"] = dwISO.Code3;
-                }
-
-                if (!columnMappings.TryGetValue("CountryCurrencyCode", out _))
-                {
-                    mapping.AddMapping(mapping.SourceTable.Columns.FirstOrDefault(), mapping.DestinationTable.Columns.Where(obj => obj.Name.Equals("CountryCurrencyCode", StringComparison.OrdinalIgnoreCase)).FirstOrDefault());
-                    dataRow["CountryCurrencyCode"] = dwISO.CurrencySymbol;
-                }
             }
         }
     }
