@@ -17,7 +17,7 @@ using System.Xml.Linq;
 namespace Dynamicweb.DataIntegration.Providers.EcomProvider;
 
 [AddInName("Dynamicweb.DataIntegration.Providers.Provider"), AddInLabel("Ecom Provider"), AddInDescription("Ecom provider"), AddInIgnore(false)]
-public class EcomProvider : BaseSqlProvider, IParameterOptions
+public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibility
 {
     private Schema Schema;
     private bool IsFirstJobRun = true;
@@ -131,13 +131,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         {
             if (defaultLanguage == null)
             {
-                SqlCommand sqlCommand = new SqlCommand("select top(1) ecomlanguages.LanguageID from ecomlanguages where ecomlanguages.languageisdefault=1", Connection);
-                if (Connection.State == ConnectionState.Closed)
-                    Connection.Open();
-                var result = sqlCommand.ExecuteReader();
-                if (result.Read())
-                    defaultLanguage = (string)result["LanguageID"];
-                result.Close();
+                defaultLanguage = Ecommerce.Services.Languages.GetDefaultLanguageId();
             }
             return defaultLanguage;
         }
@@ -942,7 +936,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
                 var columnMappings = mapping.GetColumnMappings();
 
                 if (mapping.Active && columnMappings.Count > 0)
-                {                    
+                {
                     if (!string.IsNullOrEmpty(Shop))
                     {
                         string destinationColumnNameForShopId = MappingExtensions.GetShopIdColumnName(mapping.DestinationTable.Name);
@@ -953,7 +947,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
                             shopColumnMapping.ScriptType = ScriptType.Constant;
                             shopColumnMapping.ScriptValue = Shop;
                         }
-                    }                    
+                    }
 
                     if (IsFirstJobRun)
                     {
@@ -1143,6 +1137,32 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions
         if (Connection.State == ConnectionState.Closed)
             Connection.Open();
         return sqlCommand;
+    }
+
+
+    IEnumerable<string> IParameterVisibility.GetHiddenParameterNames(string parameterName, object parameterValue)
+    {
+        var result = new List<string>();
+        switch (parameterName)
+        {
+            case "Default Language":
+                if (string.IsNullOrEmpty(defaultLanguage) || defaultLanguage.Equals(Ecommerce.Services.Languages.GetDefaultLanguageId(), StringComparison.OrdinalIgnoreCase))
+                    result.Add("Default Language");
+                break;
+            case "Source language":
+                if (string.IsNullOrEmpty(SourceLanguage))
+                    result.Add("Source language");
+                break;
+            case "Shop":
+                if (string.IsNullOrEmpty(Shop))
+                    result.Add("Shop");
+                break;
+            case "Source shop":
+                if (string.IsNullOrEmpty(SourceShop))
+                    result.Add("Source shop");
+                break;
+        }
+        return result;
     }
 }
 
