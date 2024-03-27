@@ -355,6 +355,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         break;
                     case "EcomStockLocation":
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationName", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationGroupId", typeof(string), SqlDbType.BigInt, null, -1, false, true, false);
                         break;
                 }
                 List<Mapping> tableMappings = null;
@@ -713,6 +714,20 @@ internal class EcomDestinationWriter : BaseSqlWriter
             return _lastDetailId;
         }
         set { _lastDetailId = value; }
+    }
+
+    private int _lastStockLocationGroupId = -1;
+    private int LastStockLocationGroupId
+    {
+        get
+        {
+            if (_lastStockLocationGroupId == -1)
+            {
+                _lastStockLocationGroupId = GetLastId(CommandBuilder.Create("(select convert(nvarchar,MAX(CAST(StockLocationGroupId as int))) as lastID from EcomStockLocation)"));
+            }
+            return _lastStockLocationGroupId;
+        }
+        set { _lastStockLocationGroupId = value; }
     }
 
     private int GetLastId(CommandBuilder commandBuilder)
@@ -1152,6 +1167,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 break;
             case "EcomCountries":
                 WriteCountries(row, columnMappings, dataRow, mapping);
+                break;
+            case "EcomStockLocation":
+                WriteStockLocations(columnMappings, dataRow);
                 break;
         }
 
@@ -1919,6 +1937,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 dataRow["CountryCultureInfo"] = "";
             }
+        }
+    }
+
+    private void WriteStockLocations(Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
+    {
+        if (!columnMappings.TryGetValue("StockLocationGroupId", out _))
+        {
+            LastStockLocationGroupId = LastStockLocationGroupId + 1;
+            dataRow["StockLocationGroupId"] = LastStockLocationGroupId;
         }
     }
 
@@ -3169,6 +3196,16 @@ internal class EcomDestinationWriter : BaseSqlWriter
             foreach (Mapping mapping in assortmentsMappings)
             {
                 EnsureMapping(mapping, DestinationColumnMappings["EcomAssortmentPermissions"], tableColumnsDictionary["EcomAssortmentPermissions"], new string[] { "AssortmentPermissionAccessUserID" });
+            }
+        }
+
+        List<Mapping> stockLocationMappings = null;
+        if (Mappings.TryGetValue("EcomStockLocation", out stockLocationMappings))
+        {
+            foreach (var mapping in stockLocationMappings)
+            {
+                EnsureMapping(mapping, DestinationColumnMappings["EcomStockLocation"], tableColumnsDictionary["EcomStockLocation"],
+                    new string[] { "StockLocationGroupId" });
             }
         }
     }
