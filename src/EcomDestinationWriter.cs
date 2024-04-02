@@ -716,18 +716,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
         set { _lastDetailId = value; }
     }
 
-    private int _lastStockLocationGroupId = -1;
-    private int LastStockLocationGroupId
+    private int GetLastStockLocationGroupId()
     {
-        get
-        {
-            if (_lastStockLocationGroupId == -1)
-            {
-                _lastStockLocationGroupId = GetLastId(CommandBuilder.Create("(select convert(nvarchar,MAX(CAST(StockLocationGroupId as int))) as lastID from EcomStockLocation)"));
-            }
-            return _lastStockLocationGroupId;
-        }
-        set { _lastStockLocationGroupId = value; }
+        return GetLastId(CommandBuilder.Create("(select convert(nvarchar,MAX(CAST(StockLocationGroupId as int))) as lastID from EcomStockLocation)"));
     }
 
     private int GetLastId(CommandBuilder commandBuilder)
@@ -1944,8 +1935,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         if (!columnMappings.TryGetValue("StockLocationGroupId", out _))
         {
-            LastStockLocationGroupId = LastStockLocationGroupId + 1;
-            dataRow["StockLocationGroupId"] = LastStockLocationGroupId;
+            dataRow["StockLocationGroupId"] = GetLastStockLocationGroupId();
         }
     }
 
