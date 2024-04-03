@@ -716,9 +716,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
         set { _lastDetailId = value; }
     }
 
+    private int _lastStockLocationGroupId = -1;
     private int GetLastStockLocationGroupId()
     {
-        return GetLastId(CommandBuilder.Create("(select convert(nvarchar,MAX(CAST(StockLocationGroupId as int))) as lastID from EcomStockLocation)"));
+        if (_lastStockLocationGroupId == -1)
+        {
+            _lastStockLocationGroupId = GetLastId(CommandBuilder.Create("(select convert(nvarchar,MAX(CAST(StockLocationGroupId as int))) as lastID from EcomStockLocation)"));
+        }
+        _lastStockLocationGroupId++;
+        return _lastStockLocationGroupId;
     }
 
     private int GetLastId(CommandBuilder commandBuilder)
