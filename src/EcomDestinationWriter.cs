@@ -1070,10 +1070,54 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
+    private static void MergeRows(Dictionary<string, object> row, Mapping mapping)
+    {
+        var columnMappings = mapping.GetColumnMappings();
+        var temporaryRows = new Dictionary<string, object>();
+
+        foreach (var columnMapping in columnMappings)
+        {
+            if (!columnMapping.Active)
+                continue;
+
+            if (temporaryRows.TryGetValue(columnMapping.DestinationColumn.Name, out var val))
+            {
+                if (columnMapping.DestinationColumn.Type != typeof(string))
+                    continue;
+
+                if (row.TryGetValue(columnMapping.SourceColumn.Name, out var sourceColumnValue))
+                {
+                    val += sourceColumnValue as string;
+                    temporaryRows[columnMapping.DestinationColumn.Name] = val;
+                    row[columnMapping.SourceColumn.Name] = val;
+                }
+            }
+            else if (!columnMapping.HasScriptWithValue && row.TryGetValue(columnMapping.SourceColumn.Name, out var sourceColumnValue))
+            {
+                temporaryRows.Add(columnMapping.DestinationColumn.Name, sourceColumnValue);
+                row[columnMapping.SourceColumn.Name] = sourceColumnValue;
+            }
+            else if (row.TryGetValue(columnMapping.SourceColumn.Name, out sourceColumnValue))
+            {
+                var convertedValue = columnMapping.ConvertInputValueToOutputValue(sourceColumnValue);
+                temporaryRows.Add(columnMapping.DestinationColumn.Name, convertedValue);
+                row[columnMapping.SourceColumn.Name] = convertedValue;
+            }
+            else
+            {
+                var convertedValue = columnMapping.ConvertInputValueToOutputValue(null);
+                temporaryRows.Add(columnMapping.DestinationColumn.Name, convertedValue);
+                row[columnMapping.SourceColumn.Name] = convertedValue;
+            }
+        }
+    }
+
     private int _currentlyWritingMappingId = 0;
     private long _writtenRowsCount = 0;
     public void Write(Dictionary<string, object> row, Mapping mapping, bool discardDuplicates)
     {
+        MergeRows(row, mapping);
+
         Dictionary<string, ColumnMapping> columnMappings = null;
         DataRow dataRow = DataToWrite.Tables[GetTableName(mapping.DestinationTable.Name, mapping)].NewRow();
 
@@ -1089,11 +1133,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     row[columnMapping.SourceColumn.Name] = stockLocationID;
                 }
 
-                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() < columnMapping.GetId()))
-                {
-                    dataRow[columnMapping.DestinationColumn.Name] += columnMapping.ConvertInputToOutputFormat(row[columnMapping.SourceColumn.Name]) + "";
-                }
-                else if (columnMapping.HasScriptWithValue)
+                if (columnMapping.HasScriptWithValue)
                 {
                     dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
                 }
@@ -1127,6 +1167,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 break;
             case "EcomVariantGroups":
                 WriteVariantGroups(row, columnMappings, dataRow);
+                DataRowsToWrite[GetTableName(mapping.DestinationTable.Name, mapping)].Add(RowAutoId++.ToString(), new List<DataRow>() { dataRow });
                 break;
             case "EcomVariantsOptions":
                 WriteVariantOptions(row, columnMappings, dataRow);
@@ -1175,16 +1216,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             object rowValue = null;
             if (columnMapping.HasScriptWithValue || row.TryGetValue(columnMapping.SourceColumn?.Name, out rowValue))
             {
-                object dataToRow = columnMapping.ConvertInputValueToOutputValue(rowValue);
-
-                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() < columnMapping.GetId()))
-                {
-                    dataRow[columnMapping.DestinationColumn.Name] += dataToRow.ToString();
-                }
-                else
-                {
-                    dataRow[columnMapping.DestinationColumn.Name] = dataToRow;
-                }
+                dataRow[columnMapping.DestinationColumn.Name] = columnMapping.ConvertInputValueToOutputValue(rowValue);
             }
         }
         if (!discardDuplicates || !duplicateRowsHandler.IsRowDuplicate(mappingColumns.Where(cm => cm.Active), mapping, dataRow, row))
@@ -2053,17 +2085,26 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         var newGroup = GetDataTableNewRow("EcomVariantGroups");
         LastVariantGroupId = LastVariantGroupId + 1;
+        string variantGroupId;
         //set groupID on option
-        newGroup["VariantGroupID"] = "ImportedVARGRP" + LastVariantGroupId;
+        if (column != null)
+        {
+            variantGroupId = Converter.ToString(row[column.SourceColumn.Name]);
+        }
+        else
+        {
+            variantGroupId = "ImportedVARGRP" + LastVariantGroupId;
+        }
+        newGroup["VariantGroupID"] = variantGroupId;
         newGroup["VariantGroupName"] = row[column.SourceColumn.Name];
         newGroup["VariantGroupLanguageID"] = _defaultLanguageId;
         if (newGroup.Table.Columns.Contains("VariantGroupFamily"))
         {
             newGroup["VariantGroupFamily"] = false;
         }
-        DataRowsToWrite[newGroup.Table.TableName].Add("ImportedVARGRP" + LastVariantGroupId, new List<DataRow>() { newGroup });
-        row["VariantOptionGroupID"] = "ImportedVARGRP" + LastVariantGroupId;
-        row[column.SourceColumn.Name] = newGroup["VariantGroupID"];
+        DataRowsToWrite[newGroup.Table.TableName].Add(variantGroupId, new List<DataRow>() { newGroup });
+        row["VariantOptionGroupID"] = variantGroupId;
+        row[column.SourceColumn.Name] = variantGroupId;
     }
 
     private void HandleVariantOptionLangaugeId(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
