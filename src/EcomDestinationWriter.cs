@@ -1166,7 +1166,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 WriteCountries(row, columnMappings, dataRow, mapping);
                 break;
             case "EcomStockLocation":
-                WriteStockLocations(columnMappings, dataRow);
+                WriteStockLocations(row, columnMappings, dataRow);
                 break;
         }
 
@@ -1937,11 +1937,29 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private void WriteStockLocations(Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
+    private void WriteStockLocations(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
         if (!columnMappings.TryGetValue("StockLocationGroupId", out _))
         {
-            dataRow["StockLocationGroupId"] = GetLastStockLocationGroupId();
+            ColumnMapping stockLocationIdentityColumn;
+            StockLocation existingStockLocation = null;
+            if (columnMappings.TryGetValue("StockLocationId", out stockLocationIdentityColumn))
+            {
+                existingStockLocation = GetExistingStockLocation(row, stockLocationIdentityColumn);
+            }
+            else if (columnMappings.TryGetValue("StockLocationName", out stockLocationIdentityColumn))
+            {
+                existingStockLocation = GetExistingStockLocation(row, stockLocationIdentityColumn);
+            }
+
+            if (existingStockLocation != null)
+            {
+                dataRow["StockLocationGroupId"] = existingStockLocation.GroupID;
+            }
+            else
+            {
+                dataRow["StockLocationGroupId"] = GetLastStockLocationGroupId();
+            }
         }
     }
 
