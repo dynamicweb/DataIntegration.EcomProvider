@@ -1706,9 +1706,17 @@ internal class EcomDestinationWriter : BaseSqlWriter
             LastPriceId = LastPriceId + 1;
             dataRow["PriceID"] = "ImportedPRICE" + LastPriceId;
         }
-        if (!columnMappings.ContainsKey("PriceCurrency"))
+        if (!columnMappings.TryGetValue("PriceCurrency", out var priceCurrencyColumn))
         {
-            dataRow["PriceCurrency"] = String.Empty;
+            dataRow["PriceCurrency"] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
+        }
+        else
+        {
+            var priceCurrencyValue = (string)row[priceCurrencyColumn.SourceColumn.Name];
+            if (string.IsNullOrWhiteSpace(priceCurrencyValue))
+            {
+                row[priceCurrencyColumn.SourceColumn.Name] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
+            }
         }
     }
 
