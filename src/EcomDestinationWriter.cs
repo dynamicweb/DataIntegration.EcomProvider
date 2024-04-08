@@ -1323,7 +1323,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         ColumnMapping column = null;
         columnMappings.TryGetValue("VariantOptions", out column);
-        string variantOptionsString = GetValue(column, row);
+        string variantOptionsString = GetMergedValue(column, row);
         if (!string.IsNullOrEmpty(variantOptionsString))
         {
             var variantOptionIds = SplitOnComma(variantOptionsString);
@@ -1550,7 +1550,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            productVariantID = GetValue(column, row);
+            productVariantID = GetMergedValue(column, row);
             HandleProductIdFoundByNumber(row, columnMappings, dataRow, ref productId, ref productVariantID);
         }
 
@@ -2024,7 +2024,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         ColumnMapping column = null;
         columnMappings.TryGetValue("VariantOptionGroupID", out column);
-        string variantOptionGroupID = Converter.ToString(GetValue(column, row));
+        string variantOptionGroupID = Converter.ToString(GetMergedValue(column, row));
         string variantOptionGroupIDEscaped = variantOptionGroupID.Replace("'", "''");
 
         DataRow variantGroupRow = null;
@@ -4106,8 +4106,35 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private string GetValue(ColumnMapping columnMapping, Dictionary<string, object> row)
     {
         string result = null;
-        if(columnMapping == null) return result;
-        if(columnMapping.DestinationColumn == null) return result;
+        if (columnMapping != null && (columnMapping.HasScriptWithValue || row.ContainsKey(columnMapping.SourceColumn.Name)))
+        {
+            switch (columnMapping.ScriptType)
+            {
+                case ScriptType.None:
+                    result = Converter.ToString(row[columnMapping.SourceColumn.Name]);
+                    break;
+                case ScriptType.Append:
+                    result = Converter.ToString(row[columnMapping.SourceColumn.Name]) + columnMapping.ScriptValue;
+                    break;
+                case ScriptType.Prepend:
+                    result = columnMapping.ScriptValue + Converter.ToString(row[columnMapping.SourceColumn.Name]);
+                    break;
+                case ScriptType.Constant:
+                    result = columnMapping.GetScriptValue();
+                    break;
+                case ScriptType.NewGuid:
+                    result = columnMapping.GetScriptValue();
+                    break;
+            }
+        }
+        return result;
+    }
+
+    private string GetMergedValue(ColumnMapping columnMapping, Dictionary<string, object> row)
+    {
+        string result = null;
+        if (columnMapping == null) return result;
+        if (columnMapping.DestinationColumn == null) return result;
         foreach (var item in columnMapping.Mapping.GetColumnMappings().Where(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name))
         {
             object rowValue = null;
