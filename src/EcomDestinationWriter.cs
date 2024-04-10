@@ -1709,18 +1709,19 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private void WritePrices(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
         ColumnMapping priceIdColumn = null;
-        if (!columnMappings.TryGetValue("PriceID", out priceIdColumn) || string.IsNullOrEmpty(Converter.ToString(row[priceIdColumn.SourceColumn.Name])))
+        if (!columnMappings.TryGetValue("PriceID", out priceIdColumn) || string.IsNullOrEmpty(GetMergedValue(priceIdColumn, row)))
         {
             LastPriceId = LastPriceId + 1;
             dataRow["PriceID"] = "ImportedPRICE" + LastPriceId;
         }
+
         if (!columnMappings.TryGetValue("PriceCurrency", out var priceCurrencyColumn))
         {
             dataRow["PriceCurrency"] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
         }
         else
         {
-            var priceCurrencyValue = (string)row[priceCurrencyColumn.SourceColumn.Name];
+            var priceCurrencyValue = GetMergedValue(priceCurrencyColumn, row);
             if (string.IsNullOrWhiteSpace(priceCurrencyValue))
             {
                 row[priceCurrencyColumn.SourceColumn.Name] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
@@ -1742,6 +1743,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 row["PriceUserId"] = userIDs[0];
             }
         }
+
         if (columnMappings.TryGetValue("PriceUserGroupId", out var priceAccessUserGroupColumn))
         {
             var userIDs = ExistingUsers.Select("AccessUserExternalID='" + GetMergedValue(priceAccessUserGroupColumn, row) + "'").Select(r => r["AccessUserID"].ToString()).ToList();
@@ -1764,6 +1766,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 row["DiscountAccessUserId"] = userIDs[0];
             }
         }
+
         if (columnMappings.TryGetValue("DiscountAccessUserGroup", out var discountAccessUserGroupColumn))
         {
             var userIDs = ExistingUsers.Select("AccessUserExternalID='" + GetMergedValue(discountAccessUserGroupColumn, row) + "'").Select(r => r["AccessUserID"].ToString()).ToList();
@@ -1780,7 +1783,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            var discountCurrencyValue = (string)row[discountCurrencyColumn.SourceColumn.Name];
+            var discountCurrencyValue = GetMergedValue(discountCurrencyColumn, row);
             if (string.IsNullOrWhiteSpace(discountCurrencyValue))
             {
                 row[discountCurrencyColumn.SourceColumn.Name] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
