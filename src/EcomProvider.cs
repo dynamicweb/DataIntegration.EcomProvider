@@ -339,6 +339,10 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                 case "EcomProductCategoryFieldValue":
                     table.AddColumn(new SqlColumn("FieldValueProductNumber", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                     break;
+                case "EcomDiscount":
+                    table.AddColumn(new SqlColumn("DiscountAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn("DiscountAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    break;
             }
         }
         return result;

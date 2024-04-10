@@ -305,6 +305,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceCurrency", typeof(string), SqlDbType.NVarChar, null, 3, false, true, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceShopId", typeof(string), SqlDbType.NVarChar, null, 255, false, false, false);
                         break;
+                    case "EcomDiscount":
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountAccessUserId", typeof(int), SqlDbType.Int, null, -1, false, false, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountAccessUserGroupId", typeof(int), SqlDbType.Int, null, -1, false, false, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountCurrencyCode", typeof(string), SqlDbType.NVarChar, null, 3, false, true, false);
+                        break;
                     case "EcomGroups":
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "GroupLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "GroupID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
@@ -1168,6 +1173,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             case "EcomStockLocation":
                 WriteStockLocations(row, columnMappings, dataRow);
                 break;
+            case "EcomDiscount":
+                WriteDiscounts(row, columnMappings, dataRow);
+                break;
         }
 
         foreach (ColumnMapping columnMapping in mappingColumns)
@@ -1716,6 +1724,66 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (string.IsNullOrWhiteSpace(priceCurrencyValue))
             {
                 row[priceCurrencyColumn.SourceColumn.Name] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
+            }
+        }
+
+        if (columnMappings.TryGetValue("PriceUserId", out var priceAccessUserColumn))
+        {
+            var userIdLookupValue = GetMergedValue(priceAccessUserColumn, row);
+            var userIDs = ExistingUsers.Select("AccessUserID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            if (userIDs.Count == 0)
+            {
+                userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            }
+
+            if (userIDs.Count == 1)
+            {
+                dataRow["PriceUserId"] = userIDs[0];
+                row["PriceUserId"] = userIDs[0];
+            }
+        }
+        if (columnMappings.TryGetValue("PriceUserGroupId", out var priceAccessUserGroupColumn))
+        {
+            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + GetMergedValue(priceAccessUserGroupColumn, row) + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            if (userIDs.Count == 1)
+            {
+                dataRow["PriceUserGroupId"] = userIDs[0];
+                row["PriceUserGroupId"] = userIDs[0];
+            }
+        }
+    }
+
+    private void WriteDiscounts(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
+    {
+        if (columnMappings.TryGetValue("DiscountAccessUser", out var discountAccessUserColumn))
+        {
+            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + GetMergedValue(discountAccessUserColumn, row) + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            if (userIDs.Count == 1)
+            {
+                dataRow["DiscountAccessUserId"] = userIDs[0];
+                row["DiscountAccessUserId"] = userIDs[0];
+            }
+        }
+        if (columnMappings.TryGetValue("DiscountAccessUserGroup", out var discountAccessUserGroupColumn))
+        {
+            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + GetMergedValue(discountAccessUserGroupColumn, row) + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            if (userIDs.Count == 1)
+            {
+                dataRow["DiscountAccessUserGroupId"] = userIDs[0];
+                row["DiscountAccessUserGroupId"] = userIDs[0];
+            }
+        }
+
+        if (!columnMappings.TryGetValue("DiscountCurrencyCode", out var discountCurrencyColumn))
+        {
+            dataRow["DiscountCurrencyCode"] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
+        }
+        else
+        {
+            var discountCurrencyValue = (string)row[discountCurrencyColumn.SourceColumn.Name];
+            if (string.IsNullOrWhiteSpace(discountCurrencyValue))
+            {
+                row[discountCurrencyColumn.SourceColumn.Name] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
             }
         }
     }
@@ -3203,6 +3271,16 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
 
+        List<Mapping> discountMappings = null;
+        if (HasData("EcomDiscount") && Mappings.TryGetValue("EcomDiscount", out discountMappings))
+        {
+            foreach (Mapping mapping in discountMappings)
+            {
+                EnsureMapping(mapping, DestinationColumnMappings["EcomDiscount"], tableColumnsDictionary["EcomDiscount"],
+                    new string[] { "DiscountAccessUserId", "DiscountAccessUserGroupId" });
+            }
+        }
+
         List<Mapping> detailsMappings = null;
         if (HasData("EcomDetails") && Mappings.TryGetValue("EcomDetails", out detailsMappings))
         {
@@ -3329,6 +3407,19 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     ColumnMappingCollection columnMapping = cleanMapping.GetColumnMappings(true);
                     columnMapping.RemoveAll(cm => cm.DestinationColumn != null &&
                         new HashSet<string>() { "AssortmentPermissionCustomerNumber", "AssortmentPermissionExternalID" }.Contains(cm.DestinationColumn.Name, StringComparer.OrdinalIgnoreCase));
+                }
+            }
+        }
+
+        if (Mappings.TryGetValue("EcomDiscount", out mappings))
+        {
+            foreach (Mapping cleanMapping in mappings)
+            {
+                if (cleanMapping != null)
+                {
+                    ColumnMappingCollection columnMapping = cleanMapping.GetColumnMappings(true);
+                    columnMapping.RemoveAll(cm => cm.DestinationColumn != null &&
+                        new HashSet<string>() { "DiscountAccessUser", "DiscountAccessUserGroup" }.Contains(cm.DestinationColumn.Name, StringComparer.OrdinalIgnoreCase));
                 }
             }
         }
