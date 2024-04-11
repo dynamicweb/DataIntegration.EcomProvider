@@ -1737,20 +1737,37 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
             }
 
-            if (userIDs.Count == 1)
+            if (userIDs.Count > 0)
             {
                 dataRow["PriceUserId"] = userIDs[0];
                 row["PriceUserId"] = userIDs[0];
+                if (userIDs.Count > 1)
+                {
+                    logger.Warn($"Found multiple Users with AccessUserExternalId={userIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                }
+            }
+            else
+            {
+                logger.Warn($"Could not find any User with {userIdLookupValue} as User ID or ExternalId.");
             }
         }
 
         if (columnMappings.TryGetValue("PriceUserGroupId", out var priceAccessUserGroupColumn))
         {
-            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + GetMergedValue(priceAccessUserGroupColumn, row) + "'").Select(r => r["AccessUserID"].ToString()).ToList();
-            if (userIDs.Count == 1)
+            var userGroupIdLookupValue = GetMergedValue(priceAccessUserGroupColumn, row);
+            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            if (userIDs.Count > 0)
             {
                 dataRow["PriceUserGroupId"] = userIDs[0];
                 row["PriceUserGroupId"] = userIDs[0];
+                if (userIDs.Count > 1)
+                {
+                    logger.Warn($"Found multiple UserGroups with AccessUserExternalId={userGroupIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                }
+            }
+            else
+            {
+                logger.Warn($"Could not find any UserGroup with {userGroupIdLookupValue} as ExternalId.");
             }
         }
     }
@@ -1759,21 +1776,39 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         if (columnMappings.TryGetValue("DiscountAccessUser", out var discountAccessUserColumn))
         {
-            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + GetMergedValue(discountAccessUserColumn, row) + "'").Select(r => r["AccessUserID"].ToString()).ToList();
-            if (userIDs.Count == 1)
+            var userIdLookupValue = GetMergedValue(discountAccessUserColumn, row);
+            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            if (userIDs.Count > 0)
             {
                 dataRow["DiscountAccessUserId"] = userIDs[0];
                 row["DiscountAccessUserId"] = userIDs[0];
+                if (userIDs.Count > 1)
+                {
+                    logger.Warn($"Found multiple Users with AccessUserExternalId={userIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                }
+            }
+            else
+            {
+                logger.Warn($"Could not find any User with {userIdLookupValue} as ExternalId.");
             }
         }
 
         if (columnMappings.TryGetValue("DiscountAccessUserGroup", out var discountAccessUserGroupColumn))
         {
-            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + GetMergedValue(discountAccessUserGroupColumn, row) + "'").Select(r => r["AccessUserID"].ToString()).ToList();
-            if (userIDs.Count == 1)
+            var userGroupIdLookupValue = GetMergedValue(discountAccessUserGroupColumn, row);
+            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            if (userIDs.Count > 0)
             {
                 dataRow["DiscountAccessUserGroupId"] = userIDs[0];
                 row["DiscountAccessUserGroupId"] = userIDs[0];
+                if (userIDs.Count > 1)
+                {
+                    logger.Warn($"Found multiple UserGroups with AccessUserExternalId={userGroupIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                }
+            }
+            else
+            {
+                logger.Warn($"Could not find any UserGroup with {userGroupIdLookupValue} as ExternalId.");
             }
         }
 
