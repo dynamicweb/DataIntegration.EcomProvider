@@ -1060,6 +1060,19 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         }
     }
+    private DataTable _existingUserGroups;
+    private DataTable ExistingUserGroups
+    {
+        get
+        {
+            if (_existingUserGroups == null)
+            {
+                DataSet dataSet = Database.CreateDataSet(CommandBuilder.Create("select * from AccessUser where AccessUserType IN (2,10,11)"), sqlCommand.Connection);
+                _existingUserGroups = dataSet.Tables[0];
+            }
+            return _existingUserGroups;
+        }
+    }
 
     private DataTable _existingUsers;
     private DataTable ExistingUsers
@@ -1755,7 +1768,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         if (columnMappings.TryGetValue("PriceUserGroupId", out var priceAccessUserGroupColumn))
         {
             var userGroupIdLookupValue = GetMergedValue(priceAccessUserGroupColumn, row);
-            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            var userIDs = ExistingUserGroups.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
             if (userIDs.Count > 0)
             {
                 dataRow["PriceUserGroupId"] = userIDs[0];
@@ -1796,7 +1809,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         if (columnMappings.TryGetValue("DiscountAccessUserGroup", out var discountAccessUserGroupColumn))
         {
             var userGroupIdLookupValue = GetMergedValue(discountAccessUserGroupColumn, row);
-            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            var userIDs = ExistingUserGroups.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
             if (userIDs.Count > 0)
             {
                 dataRow["DiscountAccessUserGroupId"] = userIDs[0];
