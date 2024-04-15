@@ -343,6 +343,10 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                     table.AddColumn(new SqlColumn("DiscountAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                     table.AddColumn(new SqlColumn("DiscountAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                     break;
+                case "EcomStockUnit":
+                    table.AddColumn(new SqlColumn("ProductName", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn("StockLocationName", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    break;
             }
         }
         return result;
