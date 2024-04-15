@@ -1194,7 +1194,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         foreach (ColumnMapping columnMapping in mappingColumns)
         {
             object rowValue = null;
-            if (columnMapping.HasScriptWithValue || row.TryGetValue(columnMapping.SourceColumn?.Name, out rowValue))
+            if (columnMapping.HasScriptWithValue || row.TryGetValue(columnMapping.SourceColumn?.Name ?? "", out rowValue))
             {
                 object dataToRow = columnMapping.ConvertInputValueToOutputValue(rowValue);
 
@@ -1560,7 +1560,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         string productVariantID;
         columnMappings.TryGetValue("ProductVariantID", out ColumnMapping column);
-        if (column == null || string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
+        if (column == null || column.SourceColumn == null || string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
         {
             productVariantID = existingProductRow != null ? existingProductRow["ProductVariantID"].ToString() : "";
             if (column != null)
@@ -1583,7 +1583,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         ColumnMapping column = null;
         columnMappings.TryGetValue("ProductLanguageID", out column);
         string productLanguageID = _defaultLanguageId;
-        if (column != null && column.Active && column.ScriptType != ScriptType.Constant && !string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
+        if (column != null && column.SourceColumn != null && column.Active && column.ScriptType != ScriptType.Constant && !string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
         {
             productLanguageID = GetLanguageID((string)row[column.SourceColumn.Name]);
             row[column.SourceColumn.Name] = productLanguageID;
@@ -1591,7 +1591,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         else
         {
             dataRow["ProductLanguageID"] = productLanguageID;
-            if (column != null && column.ScriptType != ScriptType.Constant)
+            if (column != null && column.ScriptType != ScriptType.Constant && column.SourceColumn != null)
             {
                 row[column.SourceColumn.Name] = productLanguageID;
             }
