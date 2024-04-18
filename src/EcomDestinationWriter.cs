@@ -1744,7 +1744,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
         if (columnMappings.TryGetValue("PriceUserId", out var priceAccessUserColumn))
         {
             var userIdLookupValue = GetMergedValue(priceAccessUserColumn, row);
-            var userIDs = ExistingUsers.Select("AccessUserID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            var userIDs = new List<string>();
+
+            if (int.TryParse(userIdLookupValue, out _))
+            {
+                userIDs = ExistingUsers.Select("AccessUserID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            }
             if (userIDs.Count == 0)
             {
                 userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
@@ -1790,7 +1795,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
         if (columnMappings.TryGetValue("DiscountAccessUser", out var discountAccessUserColumn))
         {
             var userIdLookupValue = GetMergedValue(discountAccessUserColumn, row);
-            var userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            var userIDs = new List<string>();
+
+            if (int.TryParse(userIdLookupValue, out _))
+            {
+                userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+            }
             if (userIDs.Count > 0)
             {
                 dataRow["DiscountAccessUserId"] = userIDs[0];

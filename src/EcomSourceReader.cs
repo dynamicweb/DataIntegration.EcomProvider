@@ -298,6 +298,16 @@ class EcomSourceReader : BaseSqlReader, ISourceReader
                     result = result + " join AccessUser on AssortmentPermissionAccessUserID=AccessUserID";
                 }
                 break;
+            case "EcomStockUnit":
+                if(Columns.ContainsKey("ProductName".ToLower()))
+                {
+                    result += " LEFT OUTER JOIN EcomProducts ON ProductId = StockUnitProductId AND ProductVariantId = StockUnitVariantId AND ProductNumber = StockUnitProductNumber";
+                }
+                if(Columns.ContainsKey("StockLocationName".ToLower()))
+                {
+                    result += " LEFT OUTER JOIN EcomStockLocation ON StockLocationId = StockUnitStockLocationId";
+                }
+                break;
             default:
                 result = "[" + mapping.SourceTable.SqlSchema + "].[" + mapping.SourceTable.Name + "]";
                 if (mapping.SourceTable != null && mapping.SourceTable.Name == "EcomAssortmentPermissions" &&
