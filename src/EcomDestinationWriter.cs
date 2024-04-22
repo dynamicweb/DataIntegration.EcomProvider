@@ -1117,6 +1117,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 else
                 {
+                    var rowValue = row[columnMapping.SourceColumn.Name];
+                    if (IsColumnNullableAndValueNull(columnMapping, rowValue))
+                        continue;
                     dataRow[columnMapping.DestinationColumn.Name] = columnMapping.ConvertInputToOutputFormat(row[columnMapping.SourceColumn.Name]);
                 }
             }
@@ -1196,6 +1199,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             object rowValue = null;
             if (columnMapping.HasScriptWithValue || row.TryGetValue(columnMapping.SourceColumn?.Name ?? "", out rowValue))
             {
+                if (IsColumnNullableAndValueNull(columnMapping, rowValue))
+                    continue;
+
                 object dataToRow = columnMapping.ConvertInputValueToOutputValue(rowValue);
 
                 if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() < columnMapping.GetId()))
@@ -1242,6 +1248,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
             assortmentHandler.ProcessAssortments(dataRow, mapping);
         }
     }
+
+    private static bool IsColumnNullableAndValueNull(ColumnMapping columnMapping, object rowValue) => Nullable.GetUnderlyingType(columnMapping.DestinationColumn.Type) == null
+                            && (rowValue is null || string.IsNullOrEmpty(rowValue.ToString()))
+                            && columnMapping.DestinationColumn.Type != typeof(string);
 
     private string GetTableKey(string name)
     {
@@ -3096,6 +3106,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     }
                     insertColumns.Add("[" + columnMapping.DestinationColumn.Name + "]");
                     insertSelect = insertSelect + "[dbo].[" + columnMapping.DestinationColumn.Table.Name + tempTablePrefix + "].[" + columnMapping.DestinationColumn.Name + "], ";
+
                     if (!((SqlColumn)columnMapping.DestinationColumn).IsIdentity && !((SqlColumn)columnMapping.DestinationColumn).IsKeyColumn(columnMappings) && !columnMapping.ScriptValueForInsert)
                     {
                         updateColumns = updateColumns + "[" + columnMapping.DestinationColumn.Name + "]=[" + mapping.DestinationTable.SqlSchema + "].[" + columnMapping.DestinationColumn.Table.Name + tempTablePrefix + "].[" + columnMapping.DestinationColumn.Name + "], ";
