@@ -820,99 +820,49 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         return new EcomSourceReader(mapping, Connection, GetGroupNamesForVariantOptions, GetManufacturerNamesForProducts, GetGroupNamesForProduct, GetVariantGroupNamesForProduct, GetRelatedProductsByName, GetRelatedProductGroupsByName, SourceLanguage, SourceShop);
     }
 
+    private readonly Dictionary<string, List<string>> tableRelations = new()
+    {
+        { "EcomCurrencies", [ "EcomLanguages" ]},
+        { "EcomGroups", [ "EcomLanguages" ]},
+        { "EcomVariantGroups", [ "EcomLanguages" ]},
+        { "EcomProducts", [ "EcomLanguages" ]},
+        { "EcomAssortmentShopRelations", [ "EcomShops" ]}
+    };
+
+    public override bool IsSortable(Job job, bool isSource)
+    {
+        Func<Mapping, string> tableSelector = isSource ?
+            (map => map.SourceTable.Name) :
+            (map => map.DestinationTable.Name);
+
+        var mappedTables = new HashSet<string>(job.Mappings.Select(tableSelector));
+
+        foreach (var (table, dependencies) in tableRelations)
+            if (mappedTables.Contains(table) && dependencies.All(mappedTables.Contains))
+                return false;
+
+        return true;
+    }
+
     public override void OrderTablesInJob(Job job, bool isSource)
     {
-        MappingCollection tables = new MappingCollection();
+        Func<Mapping, string> tableSelector = isSource ?
+            (map => map.SourceTable.Name) :
+            (map => map.DestinationTable.Name);
 
-        var mappings = GetMappingsByName(job.Mappings, "EcomLanguages", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
+        HashSet<string> priorityTables = tableRelations.Values.SelectMany(v => v).ToHashSet();
 
-        mappings = GetMappingsByName(job.Mappings, "EcomCountries", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
+        if (!job.Mappings.Any(m => priorityTables.Any(relations => relations == tableSelector(m))))
+            return;
 
-        mappings = GetMappingsByName(job.Mappings, "EcomCurrencies", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
+        var priorityMappings = job.Mappings
+            .Where(m => priorityTables.Contains(tableSelector(m)))
+            .OrderBy(m => priorityTables.IndexOf(tableSelector(m)));
 
-        mappings = GetMappingsByName(job.Mappings, "EcomStockLocation", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
+        var nonPriorityMappings = job.Mappings
+            .Where(m => !priorityTables.Contains(tableSelector(m)));
 
-        mappings = GetMappingsByName(job.Mappings, "EcomGroups", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomManufacturers", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomVariantGroups", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomVariantsOptions", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomProducts", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomProductItems", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomProductsRelated", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomStockUnit", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomDetails", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomProductCategoryFieldValue", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomPrices", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomDiscount", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomAssortments", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomAssortmentPermissions", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomAssortmentGroupRelations", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomAssortmentProductRelations", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomAssortmentShopRelations", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        mappings = GetMappingsByName(job.Mappings, "EcomVariantOptionsProductRelation", isSource);
-        if (mappings != null)
-            tables.AddRange(mappings);
-
-        job.Mappings = tables;
+        job.Mappings = [.. priorityMappings.Concat(nonPriorityMappings)];
     }
 
     internal static IEnumerable<Mapping> GetMappingsByName(MappingCollection collection, string name, bool isSource)
