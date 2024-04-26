@@ -287,6 +287,41 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         {
             switch (table.Name)
             {
+                case "EcomProducts":
+                    //Add extra fields to EcomProducts
+                    table.AddColumn(new SqlColumn(("Groups"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn(("PrimaryGroup"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn(("GroupSorting"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn(("VariantGroups"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn(("VariantOptions"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn(("RelatedProducts"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    var fields = new List<Ecommerce.Products.Categories.Field>();
+                    foreach (var category in Ecommerce.Services.ProductCategories.GetCategories())
+                    {
+                        if (category.CategoryType != Ecommerce.Products.Categories.CategoryType.SystemFields)
+                        {
+                            fields.AddRange(Dynamicweb.Ecommerce.Services.ProductCategoryFields.GetFieldsByCategoryId(category.Id));
+                        }
+                    }
+
+                    foreach (var field in fields)
+                    {
+                        table.AddColumn(new SqlColumn(($"ProductCategory|{field.Category.Id}|{field.Id}"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    }
+                    break;
+
+                case "EcomGroups":
+                    table.AddColumn(new SqlColumn("Shops", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn("ShopSorting", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn("ParentGroupsSorting", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn("ParentGroups", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    break;
+                case "EcomProductsRelated":
+                    table.AddColumn(new SqlColumn("ProductRelatedLanguageID", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    break;
+                case "EcomProductCategoryFieldValue":
+                    table.AddColumn(new SqlColumn("FieldValueProductNumber", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    break;
                 case "EcomDiscount":
                     table.AddColumn(new SqlColumn("DiscountAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                     table.AddColumn(new SqlColumn("DiscountAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
@@ -325,49 +360,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
     public override Schema GetOriginalSourceSchema()
     {
-        Schema result = GetSqlSchemas();
-        foreach (Table table in result.GetTables())
-        {
-            switch (table.Name)
-            {
-                case "EcomProducts":
-                    //Add extra fields to EcomProducts
-                    table.AddColumn(new SqlColumn(("Groups"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn(("PrimaryGroup"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn(("GroupSorting"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn(("VariantGroups"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn(("VariantOptions"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn(("RelatedProducts"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    var fields = new List<Ecommerce.Products.Categories.Field>();
-                    foreach (var category in Ecommerce.Services.ProductCategories.GetCategories())
-                    {
-                        if (category.CategoryType != Ecommerce.Products.Categories.CategoryType.SystemFields)
-                        {
-                            fields.AddRange(Dynamicweb.Ecommerce.Services.ProductCategoryFields.GetFieldsByCategoryId(category.Id));
-                        }
-                    }
-
-                    foreach (var field in fields)
-                    {
-                        table.AddColumn(new SqlColumn(($"ProductCategory|{field.Category.Id}|{field.Id}"), typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    }
-                    break;
-
-                case "EcomGroups":
-                    table.AddColumn(new SqlColumn("Shops", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn("ShopSorting", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn("ParentGroupsSorting", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn("ParentGroups", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    break;
-                case "EcomProductsRelated":
-                    table.AddColumn(new SqlColumn("ProductRelatedLanguageID", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    break;
-                case "EcomProductCategoryFieldValue":
-                    table.AddColumn(new SqlColumn("FieldValueProductNumber", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    break;
-            }
-        }
-        return result;
+        return GetSqlSchemas();
     }
 
     private Schema GetDynamicwebSourceSchema()
