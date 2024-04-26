@@ -282,6 +282,49 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
     public override Schema GetOriginalDestinationSchema()
     {
+        Schema result = GetOriginalSourceSchema();
+        foreach (Table table in result.GetTables())
+        {
+            switch (table.Name)
+            {
+                case "EcomDiscount":
+                    table.AddColumn(new SqlColumn("DiscountAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn("DiscountAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    break;
+                case "EcomStockUnit":
+                    table.AddColumn(new SqlColumn("ProductName", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn("StockLocationName", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    break;
+            }
+        }
+        return result;
+    }
+
+    private Schema GetSqlSchemas()
+    {
+        Schema result = GetDynamicwebSourceSchema();
+        List<string> tablestToKeep = new()
+        {
+            "EcomProducts", "EcomManufacturers", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions",
+            "EcomProductsRelated", "EcomProductItems", "EcomStockUnit", "EcomDetails","EcomProductCategoryFieldValue", "EcomLanguages", "EcomPrices",
+            "EcomAssortmentGroupRelations", "EcomAssortmentPermissions", "EcomAssortmentProductRelations", "EcomAssortments", "EcomAssortmentShopRelations",
+            "EcomVariantOptionsProductRelation", "EcomCurrencies", "EcomCountries", "EcomStockLocation", "EcomDiscount"
+        };
+        List<Table> tablesToRemove = new();
+        foreach (Table table in result.GetTables())
+        {
+            if (!tablestToKeep.Contains(table.Name))
+                tablesToRemove.Add(table);
+        }
+        foreach (Table table in tablesToRemove)
+        {
+            result.RemoveTable(table);
+        }
+        return result;
+    }
+
+    public override Schema GetOriginalSourceSchema()
+    {
         Schema result = GetSqlSchemas();
         foreach (Table table in result.GetTables())
         {
@@ -322,45 +365,9 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                 case "EcomProductCategoryFieldValue":
                     table.AddColumn(new SqlColumn("FieldValueProductNumber", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                     break;
-                case "EcomDiscount":
-                    table.AddColumn(new SqlColumn("DiscountAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn("DiscountAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    break;
-                case "EcomStockUnit":
-                    table.AddColumn(new SqlColumn("ProductName", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn("StockLocationName", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    break;
             }
         }
         return result;
-    }
-
-    private Schema GetSqlSchemas()
-    {
-        Schema result = GetDynamicwebSourceSchema();
-        List<string> tablestToKeep = new()
-        {
-            "EcomProducts", "EcomManufacturers", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions",
-            "EcomProductsRelated", "EcomProductItems", "EcomStockUnit", "EcomDetails","EcomProductCategoryFieldValue", "EcomLanguages", "EcomPrices",
-            "EcomAssortmentGroupRelations", "EcomAssortmentPermissions", "EcomAssortmentProductRelations", "EcomAssortments", "EcomAssortmentShopRelations",
-            "EcomVariantOptionsProductRelation", "EcomCurrencies", "EcomCountries", "EcomStockLocation", "EcomDiscount"
-        };
-        List<Table> tablesToRemove = new();
-        foreach (Table table in result.GetTables())
-        {
-            if (!tablestToKeep.Contains(table.Name))
-                tablesToRemove.Add(table);
-        }
-        foreach (Table table in tablesToRemove)
-        {
-            result.RemoveTable(table);
-        }
-        return result;
-    }
-
-    public override Schema GetOriginalSourceSchema()
-    {
-        return GetSqlSchemas();
     }
 
     private Schema GetDynamicwebSourceSchema()
