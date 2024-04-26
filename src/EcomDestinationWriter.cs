@@ -134,7 +134,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             var result = sqlCommand.ExecuteReader();
             if (result.Read())
             {
-                _defaultLanguageId = (string)result["languageid"];
+                _defaultLanguageId = result["languageid"].ToString();
             }
             else
             {
@@ -738,7 +738,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             if (reader.Read())
             {
-                return reader["lastID"] != DBNull.Value ? int.Parse((string)reader["lastID"]) : 0;
+                return reader["lastID"] != DBNull.Value ? int.Parse(reader["lastID"].ToString()) : 0;
             }
             return 0;
         }
@@ -1369,7 +1369,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     {
                         if (!GetVariantOptionList().Contains(option))
                         {
-                            var filter = new Func<DataRow, bool>(r => (string)r["VariantOptionID"] == option.Replace("'", "''") || (r.Table.Columns.Contains("VariantOptionName") && (string)r["VariantOptionName"] == option.Replace("'", "''")));
+                            var filter = new Func<DataRow, bool>(r => r["VariantOptionID"].ToString() == option.Replace("'", "''") || (r.Table.Columns.Contains("VariantOptionName") && r["VariantOptionName"].ToString() == option.Replace("'", "''")));
                             if (FindRow("EcomVariantsOptions", filter) == null)
                             {
                                 throw new Exception("Relation betweeen product \"" + productID + "\" and VariantOption \"" + variantOption + "\" can not be created. The VariantOption does not exist.");
@@ -1424,7 +1424,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 else
                 {
-                    var manufacturerFilter = new Func<DataRow, bool>(r => (string)r["ManufacturerID"] == manufacturer || (r.Table.Columns.Contains("ManufacturerName") && (string)r["ManufacturerName"] == manufacturer));
+                    var manufacturerFilter = new Func<DataRow, bool>(r => r["ManufacturerID"].ToString() == manufacturer || (r.Table.Columns.Contains("ManufacturerName") && r["ManufacturerName"].ToString() == manufacturer));
                     manufacturerRow = FindRow("EcomManufacturers", manufacturerFilter);
                     if (manufacturerRow != null)
                     {
@@ -1595,7 +1595,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         string productLanguageID = _defaultLanguageId;
         if (column != null && column.SourceColumn != null && column.Active && column.ScriptType != ScriptType.Constant && !string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
         {
-            productLanguageID = GetLanguageID((string)row[column.SourceColumn.Name]);
+            productLanguageID = GetLanguageID(row[column.SourceColumn.Name].ToString());
             row[column.SourceColumn.Name] = productLanguageID;
         }
         else
@@ -1650,7 +1650,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            productID = (string)row[column.SourceColumn.Name];
+            productID = row[column.SourceColumn.Name].ToString();
         }
         if (productNumberColumn != null)
         {
@@ -1679,12 +1679,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
         ColumnMapping assortmentIdColumn = null;
         if (columnMappings.TryGetValue("AssortmentPermissionAssortmentID", out assortmentIdColumn) && row[assortmentIdColumn.SourceColumn.Name] != DBNull.Value && !string.IsNullOrEmpty(Converter.ToString(row[assortmentIdColumn.SourceColumn.Name])))
         {
-            string assortmentID = (string)row[assortmentIdColumn.SourceColumn.Name];
+            string assortmentID = row[assortmentIdColumn.SourceColumn.Name].ToString();
             List<string> userIDs = new List<string>();
             ColumnMapping assortmentCustomerNumberColumn = null;
             if (columnMappings.TryGetValue("AssortmentPermissionCustomerNumber", out assortmentCustomerNumberColumn) && assortmentCustomerNumberColumn.Active && row[assortmentCustomerNumberColumn.SourceColumn.Name] != System.DBNull.Value)
             {
-                string userNumber = (string)row[assortmentCustomerNumberColumn.SourceColumn.Name];
+                string userNumber = row[assortmentCustomerNumberColumn.SourceColumn.Name].ToString();
                 if (!string.IsNullOrEmpty(userNumber))
                 {
                     userIDs = ExistingUsers.Select("AccessUserCustomerNumber='" + userNumber.Replace("'", "''") + "'").Select(r => r["AccessUserID"].ToString()).ToList();
@@ -1693,7 +1693,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             ColumnMapping externalIdmapping = null;
             if (columnMappings.TryGetValue("AssortmentPermissionExternalID", out externalIdmapping) && externalIdmapping.Active && row[externalIdmapping.SourceColumn.Name] != DBNull.Value)
             {
-                string externalId = (string)row[externalIdmapping.SourceColumn.Name];
+                string externalId = row[externalIdmapping.SourceColumn.Name].ToString();
                 if (!string.IsNullOrEmpty(externalId))
                 {
                     userIDs.AddRange(ExistingUsers.Select("AccessUserExternalID='" + externalId.Replace("'", "''") + "'").Select(r => r["AccessUserID"].ToString()));
@@ -1702,7 +1702,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             ColumnMapping userIdMapping = null;
             if (columnMappings.TryGetValue("AssortmentPermissionAccessUserID", out userIdMapping) && userIdMapping.Active && row[userIdMapping.SourceColumn.Name] != DBNull.Value)
             {
-                string id = (string)row[userIdMapping.SourceColumn.Name];
+                string id = row[userIdMapping.SourceColumn.Name].ToString();
                 if (!string.IsNullOrEmpty(id))
                 {
                     userIDs.AddRange(ExistingUsers.Select("AccessUserID='" + id.Replace("'", "''") + "'").Select(r => r["AccessUserID"].ToString()));
@@ -1754,48 +1754,54 @@ internal class EcomDestinationWriter : BaseSqlWriter
         if (columnMappings.TryGetValue("PriceUserId", out var priceAccessUserColumn))
         {
             var userIdLookupValue = GetMergedValue(priceAccessUserColumn, row);
-            var userIDs = new List<string>();
+            if (!string.IsNullOrWhiteSpace(userIdLookupValue))
+            {
+                var userIDs = new List<string>();
 
-            if (int.TryParse(userIdLookupValue, out _))
-            {
-                userIDs = ExistingUsers.Select("AccessUserID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
-            }
-            if (userIDs.Count == 0)
-            {
-                userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
-            }
-
-            if (userIDs.Count > 0)
-            {
-                dataRow["PriceUserId"] = userIDs[0];
-                row["PriceUserId"] = userIDs[0];
-                if (userIDs.Count > 1)
+                if (int.TryParse(userIdLookupValue, out _))
                 {
-                    logger.Warn($"Found multiple Users with AccessUserExternalId={userIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                    userIDs = ExistingUsers.Select("AccessUserID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
                 }
-            }
-            else
-            {
-                logger.Warn($"Could not find any User with {userIdLookupValue} as User ID or ExternalId.");
+                if (userIDs.Count == 0)
+                {
+                    userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+                }
+
+                if (userIDs.Count > 0)
+                {
+                    dataRow["PriceUserId"] = userIDs[0];
+                    row["PriceUserId"] = userIDs[0];
+                    if (userIDs.Count > 1)
+                    {
+                        logger.Warn($"EcomPrices: Found multiple Users with AccessUserExternalId={userIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                    }
+                }
+                else
+                {
+                    logger.Warn($"EcomPrices: Could not find any User with {userIdLookupValue} as User ID or ExternalId.");
+                }
             }
         }
 
         if (columnMappings.TryGetValue("PriceUserGroupId", out var priceAccessUserGroupColumn))
         {
             var userGroupIdLookupValue = GetMergedValue(priceAccessUserGroupColumn, row);
-            var userIDs = ExistingUserGroups.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
-            if (userIDs.Count > 0)
+            if (!string.IsNullOrWhiteSpace(userGroupIdLookupValue))
             {
-                dataRow["PriceUserGroupId"] = userIDs[0];
-                row["PriceUserGroupId"] = userIDs[0];
-                if (userIDs.Count > 1)
+                var userIDs = ExistingUserGroups.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+                if (userIDs.Count > 0)
                 {
-                    logger.Warn($"Found multiple UserGroups with AccessUserExternalId={userGroupIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                    dataRow["PriceUserGroupId"] = userIDs[0];
+                    row["PriceUserGroupId"] = userIDs[0];
+                    if (userIDs.Count > 1)
+                    {
+                        logger.Warn($"EcomPrices: Found multiple UserGroups with AccessUserExternalId={userGroupIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                    }
                 }
-            }
-            else
-            {
-                logger.Warn($"Could not find any UserGroup with {userGroupIdLookupValue} as ExternalId.");
+                else
+                {
+                    logger.Warn($"EcomPrices: Could not find any UserGroup with {userGroupIdLookupValue} as ExternalId.");
+                }
             }
         }
     }
@@ -1805,43 +1811,49 @@ internal class EcomDestinationWriter : BaseSqlWriter
         if (columnMappings.TryGetValue("DiscountAccessUser", out var discountAccessUserColumn))
         {
             var userIdLookupValue = GetMergedValue(discountAccessUserColumn, row);
-            var userIDs = new List<string>();
+            if (!string.IsNullOrWhiteSpace(userIdLookupValue))
+            {
+                var userIDs = new List<string>();
 
-            if (int.TryParse(userIdLookupValue, out _))
-            {
-                userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
-            }
-            if (userIDs.Count > 0)
-            {
-                dataRow["DiscountAccessUserId"] = userIDs[0];
-                row["DiscountAccessUserId"] = userIDs[0];
-                if (userIDs.Count > 1)
+                if (int.TryParse(userIdLookupValue, out _))
                 {
-                    logger.Warn($"Found multiple Users with AccessUserExternalId={userIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                    userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
                 }
-            }
-            else
-            {
-                logger.Warn($"Could not find any User with {userIdLookupValue} as ExternalId.");
+                if (userIDs.Count > 0)
+                {
+                    dataRow["DiscountAccessUserId"] = userIDs[0];
+                    row["DiscountAccessUserId"] = userIDs[0];
+                    if (userIDs.Count > 1)
+                    {
+                        logger.Warn($"Ecom Discounts: Found multiple Users with AccessUserExternalId={userIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                    }
+                }
+                else
+                {
+                    logger.Warn($"Ecom Discounts: Could not find any User with {userIdLookupValue} as ExternalId.");
+                }
             }
         }
 
         if (columnMappings.TryGetValue("DiscountAccessUserGroup", out var discountAccessUserGroupColumn))
         {
             var userGroupIdLookupValue = GetMergedValue(discountAccessUserGroupColumn, row);
-            var userIDs = ExistingUserGroups.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
-            if (userIDs.Count > 0)
+            if (!string.IsNullOrWhiteSpace(userGroupIdLookupValue))
             {
-                dataRow["DiscountAccessUserGroupId"] = userIDs[0];
-                row["DiscountAccessUserGroupId"] = userIDs[0];
-                if (userIDs.Count > 1)
+                var userIDs = ExistingUserGroups.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+                if (userIDs.Count > 0)
                 {
-                    logger.Warn($"Found multiple UserGroups with AccessUserExternalId={userGroupIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                    dataRow["DiscountAccessUserGroupId"] = userIDs[0];
+                    row["DiscountAccessUserGroupId"] = userIDs[0];
+                    if (userIDs.Count > 1)
+                    {
+                        logger.Warn($"Ecom Discounts: Found multiple UserGroups with AccessUserExternalId={userGroupIdLookupValue} using the first one with userId = {userIDs[0]}.");
+                    }
                 }
-            }
-            else
-            {
-                logger.Warn($"Could not find any UserGroup with {userGroupIdLookupValue} as ExternalId.");
+                else
+                {
+                    logger.Warn($"Ecom Discounts: Could not find any UserGroup with {userGroupIdLookupValue} as ExternalId.");
+                }
             }
         }
 
@@ -1903,7 +1915,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 if (productsRelRow == null)
                 {
-                    var filter = new Func<DataRow, bool>(r => (string)r["RelatedGroupID"] == relatedGroupID || (string)r["RelatedGroupName"] == relatedGroupID);
+                    var filter = new Func<DataRow, bool>(r => r["RelatedGroupID"].ToString() == relatedGroupID || r["RelatedGroupName"].ToString() == relatedGroupID);
                     productsRelRow = FindRow("EcomProductsRelatedGroups", filter);
                 }
                 if (productsRelRow == null)
@@ -1934,7 +1946,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         ColumnMapping groupLanguageColumn = null;
         if (columnMappings.TryGetValue("GroupLanguageID", out groupLanguageColumn) && groupLanguageColumn.ScriptType != ScriptType.Constant && !string.IsNullOrEmpty(Converter.ToString(row[groupLanguageColumn.SourceColumn.Name])))
         {
-            groupLanguageID = GetLanguageID((string)row[groupLanguageColumn.SourceColumn.Name]);
+            groupLanguageID = GetLanguageID(row[groupLanguageColumn.SourceColumn.Name].ToString());
             row[groupLanguageColumn.SourceColumn.Name] = groupLanguageID;
         }
         else
@@ -2006,7 +2018,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 else
                 {
-                    shopIdsStr = (string)row[groupShopsColumn.SourceColumn.Name];
+                    shopIdsStr = row[groupShopsColumn.SourceColumn.Name].ToString();
                 }
                 var shopIds = SplitOnComma(shopIdsStr);
                 string shopSorting = null;
@@ -2182,7 +2194,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            var filter = new Func<DataRow, bool>(r => (string)r["VariantGroupID"] == variantOptionGroupIDEscaped || (r.Table.Columns.Contains("VariantGroupName") && (string)r["VariantGroupName"] == variantOptionGroupIDEscaped));
+            var filter = new Func<DataRow, bool>(r => r["VariantGroupID"].ToString() == variantOptionGroupIDEscaped || (r.Table.Columns.Contains("VariantGroupName") && r["VariantGroupName"].ToString() == variantOptionGroupIDEscaped));
             variantGroupRow = FindRow("EcomVariantGroups", filter);
             if (variantGroupRow != null)
             {
@@ -2191,25 +2203,34 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
             else
             {
-                AddNewVariantOptionGroup(row, column);
+                AddNewVariantOptionGroup(row, columnMappings, column);
             }
         }
     }
 
-    private void AddNewVariantOptionGroup(Dictionary<string, object> row, ColumnMapping column)
+    private void AddNewVariantOptionGroup(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, ColumnMapping column)
     {
         var newGroup = GetDataTableNewRow("EcomVariantGroups");
         LastVariantGroupId = LastVariantGroupId + 1;
         //set groupID on option
-        newGroup["VariantGroupID"] = "ImportedVARGRP" + LastVariantGroupId;
         newGroup["VariantGroupName"] = row[column.SourceColumn.Name];
         newGroup["VariantGroupLanguageID"] = _defaultLanguageId;
         if (newGroup.Table.Columns.Contains("VariantGroupFamily"))
         {
             newGroup["VariantGroupFamily"] = false;
         }
-        DataRowsToWrite[newGroup.Table.TableName].Add("ImportedVARGRP" + LastVariantGroupId, new List<DataRow>() { newGroup });
-        row["VariantOptionGroupID"] = "ImportedVARGRP" + LastVariantGroupId;
+        string variantGroupId;
+        if (columnMappings.TryGetValue("VariantOptionId", out ColumnMapping variantOptionIdColumn))
+        {
+            variantGroupId = GetMergedValue(variantOptionIdColumn, row);
+        }
+        else
+        {
+            variantGroupId = "ImportedVARGRP" + LastVariantGroupId;
+        }
+        newGroup["VariantGroupID"] = variantGroupId;
+        DataRowsToWrite[newGroup.Table.TableName].Add(variantGroupId, new List<DataRow>() { newGroup });
+        row["VariantOptionGroupID"] = variantGroupId;
         row[column.SourceColumn.Name] = newGroup["VariantGroupID"];
     }
 
@@ -2320,7 +2341,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (fieldProductLanguageIdColumn != null && fieldProductLanguageIdColumn.Active && fieldProductLanguageIdColumn.ScriptType != ScriptType.Constant &&
                 !string.IsNullOrEmpty(Converter.ToString(row[fieldProductLanguageIdColumn.SourceColumn.Name])))
             {
-                productLanguageId = GetLanguageID((string)row[fieldProductLanguageIdColumn.SourceColumn.Name]);
+                productLanguageId = GetLanguageID(row[fieldProductLanguageIdColumn.SourceColumn.Name].ToString());
             }
             if (!string.IsNullOrEmpty(productLanguageId))
             {
@@ -2352,7 +2373,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         if (fieldProductLanguageIdColumn != null && fieldProductLanguageIdColumn.Active && fieldProductLanguageIdColumn.ScriptType != ScriptType.Constant &&
             !string.IsNullOrEmpty(Converter.ToString(row[fieldProductLanguageIdColumn.SourceColumn.Name])))
         {
-            fieldLanguageID = GetLanguageID((string)row[fieldProductLanguageIdColumn.SourceColumn.Name]);
+            fieldLanguageID = GetLanguageID(row[fieldProductLanguageIdColumn.SourceColumn.Name].ToString());
             row[fieldProductLanguageIdColumn.SourceColumn.Name] = fieldLanguageID;
         }
         else
@@ -2377,13 +2398,13 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         if (fieldProductVariantIdColumn != null)
         {
-            string productVariantId = (string)row[fieldProductVariantIdColumn.SourceColumn.Name];
+            string productVariantId = row[fieldProductVariantIdColumn.SourceColumn.Name].ToString();
             selectExpression = selectExpression + " and ProductVariantId='" + productVariantId + "'";
         }
 
         if (fieldProductLanguageIdColumn != null)
         {
-            string productLanguageId = (string)row[fieldProductLanguageIdColumn.SourceColumn.Name];
+            string productLanguageId = row[fieldProductLanguageIdColumn.SourceColumn.Name].ToString();
             selectExpression = selectExpression + " and ProductLanguageId='" + productLanguageId + "'";
         }
 
@@ -2445,7 +2466,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 var row = FindRow("EcomLanguages", languageId);
                 if (row == null)
                 {
-                    var filter = new Func<DataRow, bool>(r => r.Table.Columns.Contains("LanguageName") && (string)r["LanguageName"] == languageId);
+                    var filter = new Func<DataRow, bool>(r => r.Table.Columns.Contains("LanguageName") && r["LanguageName"].ToString() == languageId);
                     row = FindRow("EcomLanguages", filter);
                 }
                 //create new Language                    
@@ -2462,13 +2483,13 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 else
                 {
-                    result = (string)row["LanguageID"];
+                    result = row["LanguageID"].ToString();
                 }
             }
         }
         else
         {
-            result = (string)languageRow["LanguageID"];
+            result = languageRow["LanguageID"].ToString();
         }
         return result;
     }
@@ -2483,7 +2504,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         DataRowsToWrite["EcomProductsRelatedGroups"].Add("ImportedRELGRP" + LastRelatedGroupID, new List<DataRow>() { newProductRelatedGroup });
 
-        return (string)newProductRelatedGroup["RelatedGroupID"];
+        return newProductRelatedGroup["RelatedGroupID"].ToString();
     }
 
     private string GetDefaultGroupID(string relatedGroupLanguage)
@@ -2514,7 +2535,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     if (string.Equals(groupName, "Imported Relations Group", StringComparison.OrdinalIgnoreCase) &&
                             string.Equals(groupLangauge, relatedGroupLanguage, StringComparison.OrdinalIgnoreCase))
                     {
-                        return (string)productRelGroupRow["RelatedGroupID"];
+                        return productRelGroupRow["RelatedGroupID"].ToString();
                     }
                 }
             }
@@ -2527,7 +2548,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         newProductRelatedGroup["RelatedGroupLanguageID"] = relatedGroupLanguage;
 
         DataRowsToWrite["EcomProductsRelatedGroups"].Add("ImportedRELGRP" + LastRelatedGroupID, new List<DataRow>() { newProductRelatedGroup });
-        return (string)newProductRelatedGroup["RelatedGroupID"];
+        return newProductRelatedGroup["RelatedGroupID"].ToString();
 
     }
 
@@ -2537,15 +2558,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
         DataRow variantGroupRow = null;
         if (VariantGroups.TryGetValue(variantGroupsString, out variantGroupRow))
         {
-            AddVariantGroupReferenceToProduct(productID, (string)variantGroupRow["VariantGroupID"]);
+            AddVariantGroupReferenceToProduct(productID, variantGroupRow["VariantGroupID"].ToString());
         }
         else
         {
-            var filter = new Func<DataRow, bool>(r => (string)r["VariantGroupID"] == variantGroupsString || (r.Table.Columns.Contains("VariantGroupName") && (string)r["VariantGroupName"] == variantGroupsString));
+            var filter = new Func<DataRow, bool>(r => r["VariantGroupID"].ToString() == variantGroupsString || (r.Table.Columns.Contains("VariantGroupName") && r["VariantGroupName"].ToString() == variantGroupsString));
             variantGroupRow = FindRow("EcomVariantGroups", filter);
             if (variantGroupRow != null)
             {
-                AddVariantGroupReferenceToProduct(productID, (string)variantGroupRow["VariantGroupID"]);
+                AddVariantGroupReferenceToProduct(productID, variantGroupRow["VariantGroupID"].ToString());
             }
             else
             {
@@ -2569,14 +2590,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         if (shopRow != null)
         {
-            AddShopReferenceToGroup(groupID, (string)shopRow["ShopID"], shopSorting);
+            AddShopReferenceToGroup(groupID, shopRow["ShopID"].ToString(), shopSorting);
         }
         else
         {
             shopRow = FindRow("EcomShops", shopName);
             if (shopRow != null)
             {
-                AddShopReferenceToGroup(groupID, (string)shopRow["ShopID"], shopSorting);
+                AddShopReferenceToGroup(groupID, shopRow["ShopID"].ToString(), shopSorting);
             }
             else
             {
@@ -2585,7 +2606,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 newShop["ShopName"] = shopName;
                 LastShopId = LastShopId + 1;
                 DataRowsToWrite["EcomProductsRelatedGroups"].Add("ImportedSHOP" + LastShopId, new List<DataRow>() { newShop });
-                AddShopReferenceToGroup(groupID, (string)newShop["ShopID"], shopSorting);
+                AddShopReferenceToGroup(groupID, newShop["ShopID"].ToString(), shopSorting);
             }
         }
     }
@@ -2597,23 +2618,23 @@ internal class EcomDestinationWriter : BaseSqlWriter
         bool result = true;
         bool isPrimary = (group == primaryGroup) ? true : false;
         group = group.Replace("'", "''");
-        var filter = new Func<DataRow, bool>(g => (string)g["GroupID"] == group || (string)g["GroupName"] == group);
+        var filter = new Func<DataRow, bool>(g => g["GroupID"].ToString() == group || g["GroupName"].ToString() == group);
         List<DataRow> groupRows = FindExistingRows(ProductGroups, group, filter);
         if (groupRows != null && groupRows.Count > 0)
         {
             // Add product to all of the found existing groups
             foreach (DataRow row in groupRows)
             {
-                AddGroupReferenceRowToProduct(productID, (string)row["GroupID"], sorting, isPrimary);
+                AddGroupReferenceRowToProduct(productID, row["GroupID"].ToString(), sorting, isPrimary);
             }
         }
         else
         {
-            filter = new Func<DataRow, bool>(g => (string)g["GroupID"] == group || (g.Table.Columns.Contains("GroupName") && (string)g["GroupName"] == group));
+            filter = new Func<DataRow, bool>(g => g["GroupID"].ToString() == group || (g.Table.Columns.Contains("GroupName") && g["GroupName"].ToString() == group));
             DataRow groupRow = FindRow("EcomGroups", filter);
             if (groupRow != null)
             {
-                AddGroupReferenceRowToProduct(productID, (string)groupRow["GroupID"], sorting, isPrimary);
+                AddGroupReferenceRowToProduct(productID, groupRow["GroupID"].ToString(), sorting, isPrimary);
             }
             else
             {
@@ -2634,7 +2655,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     newGroup["GroupName"] = group;
                     DataRowsToWrite[newGroup.Table.TableName].Add("ImportedGROUP" + LastGroupId, new List<DataRow>() { newGroup });
                     AddShopReferenceToGroup("ImportedGROUP" + LastGroupId, DefaultShop, 0);
-                    AddGroupReferenceRowToProduct(productID, (string)newGroup["GroupID"], sorting, isPrimary);
+                    AddGroupReferenceRowToProduct(productID, newGroup["GroupID"].ToString(), sorting, isPrimary);
                 }
                 else
                 {
@@ -2856,7 +2877,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 sqlCommand.CommandText = "select top(1) ShopID from EcomShops order by ShopDefault DESC, shopID";
                 var result = sqlCommand.ExecuteReader();
                 result.Read();
-                _defaultShop = (string)result["ShopID"];
+                _defaultShop = result["ShopID"].ToString();
                 result.Close();
             }
             return _defaultShop;
@@ -3641,7 +3662,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                             }
                             if (existigProductVariantIdsCombination.ContainsKey(key))
                             {
-                                string rowProductVariantId = (string)row["ProductVariantID"];
+                                string rowProductVariantId = row["ProductVariantID"].ToString();
                                 List<Tuple<string, string, string, string>> variantsInfoList = (List<Tuple<string, string, string, string>>)existigProductVariantIdsCombination[key];
                                 foreach (Tuple<string, string, string, string> variantInfo in variantsInfoList)
                                 {
@@ -3745,7 +3766,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                                 string relatedGroupID = string.Empty;
                                 if (productsRelatedTableIsPresent)
                                 {
-                                    var filter = new Func<DataRow, bool>(r => (string)r["ProductRelatedProductID"] == row["ProductID"].ToString() && (string)r["ProductRelatedProductRelID"] == relatedProductIds[i]);
+                                    var filter = new Func<DataRow, bool>(r => r["ProductRelatedProductID"].ToString() == row["ProductID"].ToString() && r["ProductRelatedProductRelID"] == relatedProductIds[i]);
                                     DataRow productsRelRow = FindRow(ecomProductsRelatedDataTable.TableName, filter);
                                     //DataRow[] productsRelatedRows = ecomProductsRelatedDataTable.Select("ProductRelatedProductID='" + row["ProductID"].ToString().Replace("'", "''") + "' and ProductRelatedProductRelID='" + relatedProductIds[i].Replace("'", "''") + "'");
                                     if (productsRelRow != null)
@@ -3773,21 +3794,21 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void AddRelatedProductReferenceToProduct(DataTable ecomProductsDataTable, Dictionary<string, List<DataRow>> ecomProductsDataTableRows, DataTable ecomProductsRelatedDataTable, string productID, string relatedProduct, string relatedGroupID)
     {
-        var filter = new Func<DataRow, bool>(r => (string)r["ProductID"] == relatedProduct);
+        var filter = new Func<DataRow, bool>(r => r["ProductID"].ToString() == relatedProduct);
         //find ProductID by relatedProduct string(it can contain ID, Number, Name)
         var rows = FindExistingRows(ecomProductsDataTableRows, relatedProduct, filter);
         if (rows?.Count == 0 && !useStrictPrimaryKeyMatching)
         {
             if (ecomProductsDataTable.Columns.Contains("ProductNumber"))
             {
-                filter = new Func<DataRow, bool>(r => (string)r["ProductNumber"] == relatedProduct);
+                filter = new Func<DataRow, bool>(r => r["ProductNumber"].ToString() == relatedProduct);
                 rows = FindExistingRows(ecomProductsDataTableRows, string.Empty, filter);
             }
             if (rows?.Count == 0)
             {
                 if (ecomProductsDataTable.Columns.Contains("ProductName"))
                 {
-                    filter = new Func<DataRow, bool>(r => (string)r["ProductName"] == relatedProduct);
+                    filter = new Func<DataRow, bool>(r => r["ProductName"].ToString() == relatedProduct);
                     rows = FindExistingRows(ecomProductsDataTableRows, string.Empty, filter);
                 }
                 if (rows?.Count == 0)
@@ -3804,7 +3825,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             string relatedProductID = rows[0]["ProductID"].ToString();
 
-            filter = new Func<DataRow, bool>(r => (string)r["ProductRelatedProductID"] == productID && (string)r["ProductRelatedProductRelID"] == relatedProductID && (string)r["ProductRelatedGroupID"] == relatedGroupID);
+            filter = new Func<DataRow, bool>(r => r["ProductRelatedProductID"].ToString() == productID && r["ProductRelatedProductRelID"].ToString() == relatedProductID && r["ProductRelatedGroupID"].ToString() == relatedGroupID);
             //string filter = string.Format("ProductRelatedProductID='{0}' and ProductRelatedProductRelID='{1}' and ProductRelatedGroupID='{2}'", productID, relatedProductID, relatedGroupID);
             var row = FindRow(ecomProductsRelatedDataTable.TableName, filter);
             if (row == null)

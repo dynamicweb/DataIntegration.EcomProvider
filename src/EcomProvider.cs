@@ -17,7 +17,7 @@ using System.Xml.Linq;
 namespace Dynamicweb.DataIntegration.Providers.EcomProvider;
 
 [AddInName("Dynamicweb.DataIntegration.Providers.Provider"), AddInLabel("Ecom Provider"), AddInDescription("Ecom provider"), AddInIgnore(false)]
-public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibility
+public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibility, ISource, IDestination
 {
     private Schema Schema;
     private bool IsFirstJobRun = true;
@@ -280,7 +280,23 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         CreateMissingGoups = true;
     }
 
-    public override Schema GetOriginalSourceSchema()
+    public override Schema GetOriginalDestinationSchema()
+    {
+        Schema result = GetOriginalSourceSchema();
+        foreach (Table table in result.GetTables())
+        {
+            switch (table.Name)
+            {
+                case "EcomDiscount":
+                    table.AddColumn(new SqlColumn("DiscountAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn("DiscountAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    break;
+            }
+        }
+        return result;
+    }
+
+    private Schema GetSqlSchemas()
     {
         Schema result = GetDynamicwebSourceSchema();
         List<string> tablestToKeep = new()
@@ -300,6 +316,12 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         {
             result.RemoveTable(table);
         }
+        return result;
+    }
+
+    public override Schema GetOriginalSourceSchema()
+    {
+        Schema result = GetSqlSchemas();
         foreach (Table table in result.GetTables())
         {
             switch (table.Name)
@@ -338,10 +360,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                     break;
                 case "EcomProductCategoryFieldValue":
                     table.AddColumn(new SqlColumn("FieldValueProductNumber", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    break;
-                case "EcomDiscount":
-                    table.AddColumn(new SqlColumn("DiscountAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
-                    table.AddColumn(new SqlColumn("DiscountAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                     break;
                 case "EcomStockUnit":
                     table.AddColumn(new SqlColumn("ProductName", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
@@ -466,11 +484,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         }
     }
 
-    public override Schema GetOriginalDestinationSchema()
-    {
-        return GetOriginalSourceSchema();
-    }
-
     public override void OverwriteSourceSchemaToOriginal()
     {
         Schema = GetOriginalSourceSchema();
@@ -478,10 +491,16 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
     public override void OverwriteDestinationSchemaToOriginal()
     {
-        Schema = GetOriginalSourceSchema();
+        Schema = GetOriginalDestinationSchema();
     }
 
-    public override Schema GetSchema()
+    Schema IDestination.GetSchema()
+    {
+        Schema ??= GetOriginalDestinationSchema();
+        return Schema;
+    }
+
+    Schema ISource.GetSchema()
     {
         Schema ??= GetOriginalSourceSchema();
         return Schema;
@@ -700,14 +719,9 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         return null;
     }
 
-    public override void SaveAsXml(XmlTextWriter xmlTextWriter)
+    void ISource.SaveAsXml(XmlTextWriter xmlTextWriter)
     {
-        xmlTextWriter.WriteElementString("RemoveMissingAfterImport", RemoveMissingAfterImport.ToString(CultureInfo.CurrentCulture));
-        xmlTextWriter.WriteElementString("RemoveMissingAfterImportDestinationTablesOnly", RemoveMissingAfterImportDestinationTablesOnly.ToString(CultureInfo.CurrentCulture));
-        xmlTextWriter.WriteElementString("DeactivateMissingProducts", DeactivateMissingProducts.ToString(CultureInfo.CurrentCulture));
-        xmlTextWriter.WriteElementString("DeleteProductsAndGroupForSpecificLanguage", DeleteProductsAndGroupForSpecificLanguage.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("SqlConnectionString", SqlConnectionString);
-        xmlTextWriter.WriteElementString("Shop", Shop);
         xmlTextWriter.WriteElementString("SourceShop", SourceShop);
         xmlTextWriter.WriteElementString("UserKeyField", UserKeyField);
         xmlTextWriter.WriteElementString("GroupsForProductsBy", GroupsForProductsBy);
@@ -716,8 +730,18 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         xmlTextWriter.WriteElementString("RelatedProductGroupsBy", RelatedProductGroupsBy);
         xmlTextWriter.WriteElementString("RelatedProductsBy", RelatedProductsBy);
         xmlTextWriter.WriteElementString("VariantGroupsForProductsBy", VariantGroupsForProductsBy);
-        xmlTextWriter.WriteElementString("DefaultLanguage", DefaultLanguage);
         xmlTextWriter.WriteElementString("SourceLanguage", SourceLanguage);
+        (this as ISource).GetSchema().SaveAsXml(xmlTextWriter);
+    }
+
+    void IDestination.SaveAsXml(XmlTextWriter xmlTextWriter)
+    {
+        xmlTextWriter.WriteElementString("RemoveMissingAfterImport", RemoveMissingAfterImport.ToString(CultureInfo.CurrentCulture));
+        xmlTextWriter.WriteElementString("RemoveMissingAfterImportDestinationTablesOnly", RemoveMissingAfterImportDestinationTablesOnly.ToString(CultureInfo.CurrentCulture));
+        xmlTextWriter.WriteElementString("DeactivateMissingProducts", DeactivateMissingProducts.ToString(CultureInfo.CurrentCulture));
+        xmlTextWriter.WriteElementString("DeleteProductsAndGroupForSpecificLanguage", DeleteProductsAndGroupForSpecificLanguage.ToString(CultureInfo.CurrentCulture));
+        xmlTextWriter.WriteElementString("Shop", Shop);
+        xmlTextWriter.WriteElementString("DefaultLanguage", DefaultLanguage);
         xmlTextWriter.WriteElementString("UpdateOnlyExistingProducts", UpdateOnlyExistingProducts.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("UseStrictPrimaryKeyMatching", UseStrictPrimaryKeyMatching.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("RepositoriesIndexUpdate", RepositoriesIndexUpdate);
@@ -731,7 +755,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         xmlTextWriter.WriteElementString(nameof(UseProductIdFoundByNumber), UseProductIdFoundByNumber.ToString());
         xmlTextWriter.WriteElementString(nameof(IgnoreEmptyCategoryFieldValues), IgnoreEmptyCategoryFieldValues.ToString());
         xmlTextWriter.WriteElementString("SkipFailingRows", SkipFailingRows.ToString(CultureInfo.CurrentCulture));
-        GetSchema().SaveAsXml(xmlTextWriter);
+        (this as IDestination).GetSchema().SaveAsXml(xmlTextWriter);
     }
 
     public override void UpdateSourceSettings(ISource source)
