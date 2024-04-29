@@ -967,6 +967,24 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
         try
         {
+            if (IsFirstJobRun)
+            {
+                Writer = new EcomDestinationWriter(job, Connection, DeactivateMissingProducts, null, RemoveMissingAfterImport, Logger,
+                UpdateOnlyExistingProducts, DefaultLanguage, DiscardDuplicates, PartialUpdate, RemoveMissingAfterImportDestinationTablesOnly, UseStrictPrimaryKeyMatching,
+                CreateMissingGoups, SkipFailingRows, UseProductIdFoundByNumber, IgnoreEmptyCategoryFieldValues);
+                if (!string.IsNullOrEmpty(Shop))
+                {
+                    Writer.DefaultShop = Shop;
+                }
+            }
+            else
+            {
+                if (Writer == null)
+                {
+                    throw new Exception($"Can not find Ecom");
+                }
+            }
+
             foreach (Mapping mapping in job.Mappings)
             {
                 var columnMappings = mapping.GetColumnMappings();
@@ -983,26 +1001,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                             shopColumnMapping.ScriptType = ScriptType.Constant;
                             shopColumnMapping.ScriptValue = Shop;
                         }
-                    }
-
-                    if (IsFirstJobRun)
-                    {
-                        Writer = new EcomDestinationWriter(job, Connection, DeactivateMissingProducts, null, RemoveMissingAfterImport, Logger,
-                        UpdateOnlyExistingProducts, DefaultLanguage, DiscardDuplicates, PartialUpdate, RemoveMissingAfterImportDestinationTablesOnly, UseStrictPrimaryKeyMatching,
-                        CreateMissingGoups, SkipFailingRows, UseProductIdFoundByNumber, IgnoreEmptyCategoryFieldValues);
-                        if (!string.IsNullOrEmpty(Shop))
-                        {
-                            Writer.DefaultShop = Shop;
-                        }
-                    }
-                    else
-                    {
-                        if (Writer == null)
-                        {
-                            throw new Exception($"Can not find Ecom");
-                        }
-                    }
-
+                    }                    
 
                     Logger.Log("Starting import to temporary table for " + mapping.DestinationTable.Name + ".");
                     using (var reader = job.Source.GetReader(mapping))
