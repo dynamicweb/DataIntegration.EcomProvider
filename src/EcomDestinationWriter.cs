@@ -763,7 +763,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
             return _variantGroups;
         }
-    }    
+    }
 
     internal HashSet<string> _existingVariantOptionsList;
     private HashSet<string> GetVariantOptionList()
@@ -1190,7 +1190,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 break;
             case "EcomDiscount":
                 WriteDiscounts(row, columnMappings, dataRow);
-                break;                
+                break;
         }
 
         foreach (ColumnMapping columnMapping in mappingColumns)
@@ -1422,8 +1422,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 else
                 {
-                    var manufacturerFilter = new Func<DataRow, bool>(r => r["ManufacturerID"].ToString() == manufacturer || (r.Table.Columns.Contains("ManufacturerName") && r["ManufacturerName"].ToString() == manufacturer));
-                    manufacturerRow = FindRow("EcomManufacturers", manufacturerFilter);
+                    manufacturerRow = FindRow("EcomManufacturers", manufacturer, dataRow.Table.Columns.Contains("ManufacturerName") ? new Func<DataRow, bool>(r => r["ManufacturerName"].ToString() == manufacturer) : null);
                     if (manufacturerRow != null)
                     {
                         row[columnMapping.SourceColumn.Name] = manufacturerRow["ManufacturerID"];
@@ -1913,8 +1912,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 if (productsRelRow == null)
                 {
-                    var filter = new Func<DataRow, bool>(r => r["RelatedGroupID"].ToString() == relatedGroupID || r["RelatedGroupName"].ToString() == relatedGroupID);
-                    productsRelRow = FindRow("EcomProductsRelatedGroups", filter);
+                    productsRelRow = FindRow("EcomProductsRelatedGroups", relatedGroupID, new Func<DataRow, bool>(r => r["RelatedGroupName"].ToString() == relatedGroupID));
                 }
                 if (productsRelRow == null)
                 {
@@ -2193,7 +2191,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         else
         {
             bool hasVariantGroupName = dataRow.Table.Columns.Contains("VariantGroupName");
-            variantGroupRow = FindRow("EcomVariantGroups", variantOptionGroupIDEscaped, hasVariantGroupName ? new Func<DataRow, bool>(r => (string)r["VariantGroupName"] == variantOptionGroupIDEscaped) : null);            
+            variantGroupRow = FindRow("EcomVariantGroups", variantOptionGroupIDEscaped, hasVariantGroupName ? new Func<DataRow, bool>(r => r["VariantGroupName"].ToString() == variantOptionGroupIDEscaped) : null);
             if (variantGroupRow != null)
             {
                 dataRow["VariantOptionGroupID"] = variantGroupRow["VariantGroupID"];
@@ -2229,7 +2227,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         newGroup["VariantGroupID"] = variantGroupId;
         DataRowsToWrite[newGroup.Table.TableName].Add(variantGroupId, new List<DataRow>() { newGroup });
         row["VariantOptionGroupID"] = variantGroupId;
-        row[column.SourceColumn.Name] = newGroup["VariantGroupID"];        
+        row[column.SourceColumn.Name] = newGroup["VariantGroupID"];
     }
 
     private void HandleVariantOptionLangaugeId(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
@@ -2560,7 +2558,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            variantGroupRow = FindRow("EcomVariantGroups", variantGroupsString, dataTable.Columns.Contains("VariantGroupName") ? new Func<DataRow, bool>(r => (string)r["VariantGroupName"] == variantGroupsString) : null);
+            variantGroupRow = FindRow("EcomVariantGroups", variantGroupsString, dataTable.Columns.Contains("VariantGroupName") ? new Func<DataRow, bool>(r => r["VariantGroupName"].ToString() == variantGroupsString) : null);
             if (variantGroupRow != null)
             {
                 AddVariantGroupReferenceToProduct(productID, variantGroupRow["VariantGroupID"].ToString());
@@ -4034,7 +4032,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             duplicateRowsHandler.Dispose();
         }
-        _rowsWithMissingGroups = new List<Dictionary<string, object>>();        
+        _rowsWithMissingGroups = new List<Dictionary<string, object>>();
     }
 
     private void ClearHashTables()
