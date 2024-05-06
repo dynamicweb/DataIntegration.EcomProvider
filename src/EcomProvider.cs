@@ -280,6 +280,18 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         CreateMissingGoups = true;
     }
 
+    private readonly Dictionary<string, List<string>> tableRelations = new()
+    {
+        { "EcomCurrencies", [ "EcomLanguages" ]},
+        { "EcomGroups", [ "EcomLanguages", "EcomShops" ]},
+        { "EcomVariantGroups", [ "EcomLanguages" ]},
+        { "EcomProducts", [ "EcomLanguages", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions", "EcomProductsRelated" ]},
+        { "EcomAssortmentShopRelations", [ "EcomShops" ]},
+        { "EcomProductsRelated", [ "EcomLanguages" ] },
+        { "EcomProductCategoryFieldValue", [ "EcomProducts" ] },
+        { "EcomStockUnit", [ "EcomProducts", "EcomStockLocation" ] }
+    };
+
     public override Schema GetOriginalSourceSchema()
     {
         Schema result = GetDynamicwebSourceSchema();
@@ -820,15 +832,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         return new EcomSourceReader(mapping, Connection, GetGroupNamesForVariantOptions, GetManufacturerNamesForProducts, GetGroupNamesForProduct, GetVariantGroupNamesForProduct, GetRelatedProductsByName, GetRelatedProductGroupsByName, SourceLanguage, SourceShop);
     }
 
-    private readonly Dictionary<string, List<string>> tableRelations = new()
-    {
-        { "EcomCurrencies", [ "EcomLanguages" ]},
-        { "EcomGroups", [ "EcomLanguages" ]},
-        { "EcomVariantGroups", [ "EcomLanguages" ]},
-        { "EcomProducts", [ "EcomLanguages" ]},
-        { "EcomAssortmentShopRelations", [ "EcomShops" ]}
-    };
-
     public override bool IsSortable(Job job, bool isSource)
     {
         Func<Mapping, string> tableSelector = isSource ?
@@ -838,7 +841,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         var mappedTables = new HashSet<string>(job.Mappings.Select(tableSelector));
 
         foreach (var (table, dependencies) in tableRelations)
-            if (mappedTables.Contains(table) && dependencies.All(mappedTables.Contains))
+            if (mappedTables.Contains(table) && dependencies.Any(mappedTables.Contains))
                 return false;
 
         return true;
@@ -850,7 +853,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             (map => map.SourceTable.Name) :
             (map => map.DestinationTable.Name);
 
-        HashSet<string> priorityTables = tableRelations.Values.SelectMany(v => v).ToHashSet();
+        var priorityTables = tableRelations.Values.SelectMany(v => v).Distinct().ToList();
 
         if (!job.Mappings.Any(m => priorityTables.Any(relations => relations == tableSelector(m))))
             return;
