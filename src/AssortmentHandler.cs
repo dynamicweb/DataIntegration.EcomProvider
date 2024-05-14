@@ -18,8 +18,8 @@ public class AssortmentHandler
 {
     private Dictionary<string, List<AssortmentInfo>> assortmentsToRebuild = new Dictionary<string, List<AssortmentInfo>>();
     private readonly string assortmentsProductsTempTableName = "AssortmentsProductsTempTable";
-    private readonly ILogger logger = null;
-    private SqlCommand sqlCommand = null;
+    private readonly ILogger logger;
+    private SqlCommand sqlCommand;
     private readonly string CurrentContextLanguageId = Ecommerce.Common.Context.LanguageID;
 
     public SqlCommand SqlCommand
@@ -45,9 +45,9 @@ public class AssortmentHandler
     {
         if (dataRow != null && mapping.DestinationTable != null)
         {
-            string assortmentID = null;
+            string? assortmentID = null;
             string assortmentLanguageId = CurrentContextLanguageId;
-            string relationID = null;
+            string? relationID = null;
             AssortmentRelationType relationType = AssortmentRelationType.Product;
 
             switch (mapping.DestinationTable.Name)
@@ -123,7 +123,7 @@ public class AssortmentHandler
             CreateAssortmentProductsTempTable();
             InsertAssortmentProductsToTempTable(assortmentsToRebuild);
             UpdateAssortmentsProducts(false);
-            Assortment assortment = null;
+            Assortment? assortment = null;
             string msg = "";
 
             foreach (string assortmentId in assortmentsToRebuild.Keys)
@@ -218,7 +218,7 @@ public class AssortmentHandler
                 ExecuteInsertAssortmentProductsToTempTable(sb.ToString());
             }
 
-            List<string> productIDs = assortments.SelectMany(v => v.Value).Where(x => x.RelationType == AssortmentRelationType.Product && !string.IsNullOrEmpty(x.RelationID)).Select(i => i.RelationID).Distinct().ToList();
+            List<string?> productIDs = assortments.SelectMany(v => v.Value).Where(x => x.RelationType == AssortmentRelationType.Product && !string.IsNullOrEmpty(x.RelationID)).Select(i => i.RelationID).Distinct().ToList();
             if (productIDs.Count > 0)
             {
                 int maxProductIDsInQuery = 3000;

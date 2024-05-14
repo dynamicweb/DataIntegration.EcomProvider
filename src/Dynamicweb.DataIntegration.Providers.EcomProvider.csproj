@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<Version>10.0.27</Version>
+		<Version>10.0.28</Version>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<Title>Ecom Provider</Title>
 		<Description>Ecom Provider</Description>
@@ -21,6 +21,7 @@
 		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<Nullable>enable</Nullable>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Dynamicweb.DataIntegration" Version="10.0.19" />
