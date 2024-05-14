@@ -291,7 +291,6 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductDefaultShopId", typeof(string), SqlDbType.NVarChar, null, 255, false, false, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantProdCounter");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantGroupCounter");
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantCounter");
                         break;
                     case "EcomProductCategoryFieldValue":
@@ -973,7 +972,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 List<string> columnsToSelect = new List<string>() {
                     "ProductID", "ProductLanguageID", "ProductVariantID","ProductNumber", "ProductName",
-                    "ProductVariantCounter", "ProductVariantGroupCounter","ProductVariantProdCounter"
+                    "ProductVariantCounter", "ProductVariantProdCounter"
                 };
                 IEnumerable<string> ecomProductsPKColumns = MappingIdEcomProductsPKColumns.Values.SelectMany(i => i);
                 if (ecomProductsPKColumns != null)
@@ -1109,7 +1108,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
                 if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() < columnMapping.GetId()))
                 {
-                    dataRow[columnMapping.DestinationColumn.Name] += columnMapping.ConvertInputToOutputFormat(row[columnMapping.SourceColumn.Name]) + "";
+                    dataRow[columnMapping.DestinationColumn.Name] += columnMapping.ConvertInputValueToOutputValue(row[columnMapping.SourceColumn.Name]) + "";
                 }
                 else if (columnMapping.HasScriptWithValue)
                 {
@@ -1120,7 +1119,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     var rowValue = row[columnMapping.SourceColumn.Name];
                     if (IsColumnNullableAndValueNull(columnMapping, rowValue))
                         continue;
-                    dataRow[columnMapping.DestinationColumn.Name] = columnMapping.ConvertInputToOutputFormat(row[columnMapping.SourceColumn.Name]);
+                    dataRow[columnMapping.DestinationColumn.Name] = columnMapping.ConvertInputValueToOutputValue(row[columnMapping.SourceColumn.Name]);
                 }
             }
             else
@@ -1287,12 +1286,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
         if (existingProductRow != null)
         {
             dataRow["ProductVariantCounter"] = existingProductRow["ProductVariantCounter"];
-            dataRow["ProductVariantGroupCounter"] = existingProductRow["ProductVariantGroupCounter"];
             dataRow["ProductVariantProdCounter"] = existingProductRow["ProductVariantProdCounter"];
         }
 
         //Find groups, create if missing, add relations   
-        HandleProductGroups(row, columnMappings, productID, productLanguageID);
+        HandleProductGroups(row, columnMappings, productID, productLanguageID, dataRow.Table);
 
         HandleProductCategoryFields(row, columnMappings, productID, productVariantID, productLanguageID);
 
@@ -1300,10 +1298,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
         HandleProductManufacturers(row, columnMappings, dataRow);
 
         //Find VariantRelations, create if missing, Add Variant Relations
-        string variantGroupsString = HandleProductVariantGroups(row, columnMappings, productID);
+        string variantGroupsString = HandleProductVariantGroups(row, columnMappings, productID, dataRow.Table);
 
         //Find VariantRelations, create if missing, Add Variant Relations
-        string variantOptionsString = HandleProductVariantOptions(row, columnMappings, productID);
+        string variantOptionsString = HandleProductVariantOptions(row, columnMappings, productID, dataRow.Table);
 
         if (string.IsNullOrEmpty(variantGroupsString) && string.IsNullOrEmpty(variantOptionsString) && !string.IsNullOrEmpty(productVariantID))
         {
@@ -1350,7 +1348,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private string HandleProductVariantOptions(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID)
+    private string HandleProductVariantOptions(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID, DataTable dataTable)
     {
         ColumnMapping column = null;
         columnMappings.TryGetValue("VariantOptions", out column);
@@ -1369,8 +1367,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     {
                         if (!GetVariantOptionList().Contains(option))
                         {
-                            var filter = new Func<DataRow, bool>(r => r["VariantOptionID"].ToString() == option.Replace("'", "''") || (r.Table.Columns.Contains("VariantOptionName") && r["VariantOptionName"].ToString() == option.Replace("'", "''")));
-                            if (FindRow("EcomVariantsOptions", filter) == null)
+                            var id = option.Replace("'", "''");
+                            if (FindRow("EcomVariantsOptions", id, dataTable.Columns.Contains("VariantOptionName") ? new Func<DataRow, bool>(r => r["VariantOptionName"].ToString() == id) : null) == null)
                             {
                                 throw new Exception("Relation betweeen product \"" + productID + "\" and VariantOption \"" + variantOption + "\" can not be created. The VariantOption does not exist.");
                             }
@@ -1386,7 +1384,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return variantOptionsString;
     }
 
-    private string HandleProductVariantGroups(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID)
+    private string HandleProductVariantGroups(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID, DataTable dataTable)
     {
         ColumnMapping column = null;
         columnMappings.TryGetValue("VariantGroups", out column);
@@ -1397,7 +1395,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             for (int i = 0; i < variantGroupId.Length; i++)
             {
                 string variantGroup = variantGroupId[i];
-                AddVariantGroupReferenceToProductByVariantGroupName(productID, variantGroup);
+                AddVariantGroupReferenceToProductByVariantGroupName(productID, variantGroup, dataTable);
             }
         }
 
@@ -1424,8 +1422,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 else
                 {
-                    var manufacturerFilter = new Func<DataRow, bool>(r => r["ManufacturerID"].ToString() == manufacturer || (r.Table.Columns.Contains("ManufacturerName") && r["ManufacturerName"].ToString() == manufacturer));
-                    manufacturerRow = FindRow("EcomManufacturers", manufacturerFilter);
+                    manufacturerRow = FindRow("EcomManufacturers", manufacturer, dataRow.Table.Columns.Contains("ManufacturerName") ? new Func<DataRow, bool>(r => r["ManufacturerName"].ToString() == manufacturer) : null);
                     if (manufacturerRow != null)
                     {
                         row[columnMapping.SourceColumn.Name] = manufacturerRow["ManufacturerID"];
@@ -1451,7 +1448,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private void HandleProductGroups(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID, string productLanguageID)
+    private void HandleProductGroups(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID, string productLanguageID, DataTable dataTable)
     {
         ColumnMapping column = null;
         columnMappings.TryGetValue("Groups", out column);
@@ -1479,11 +1476,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     bool referenceAdded = false;
                     if (groupSortings.Length > i)
                     {
-                        referenceAdded = AddGroupReferenceToProduct(productID, productLanguageID, group, int.Parse(groupSortings[i]), primaryGroup);
+                        referenceAdded = AddGroupReferenceToProduct(productID, productLanguageID, group, int.Parse(groupSortings[i]), primaryGroup, dataTable);
                     }
                     else
                     {
-                        referenceAdded = AddGroupReferenceToProduct(productID, productLanguageID, group, null, primaryGroup);
+                        referenceAdded = AddGroupReferenceToProduct(productID, productLanguageID, group, null, primaryGroup, dataTable);
                     }
                     if (!referenceAdded && !_createMissingGoups)
                     {
@@ -1915,8 +1912,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 if (productsRelRow == null)
                 {
-                    var filter = new Func<DataRow, bool>(r => r["RelatedGroupID"].ToString() == relatedGroupID || r["RelatedGroupName"].ToString() == relatedGroupID);
-                    productsRelRow = FindRow("EcomProductsRelatedGroups", filter);
+                    productsRelRow = FindRow("EcomProductsRelatedGroups", relatedGroupID, new Func<DataRow, bool>(r => r["RelatedGroupName"].ToString() == relatedGroupID));
                 }
                 if (productsRelRow == null)
                 {
@@ -2194,8 +2190,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            var filter = new Func<DataRow, bool>(r => r["VariantGroupID"].ToString() == variantOptionGroupIDEscaped || (r.Table.Columns.Contains("VariantGroupName") && r["VariantGroupName"].ToString() == variantOptionGroupIDEscaped));
-            variantGroupRow = FindRow("EcomVariantGroups", filter);
+            bool hasVariantGroupName = dataRow.Table.Columns.Contains("VariantGroupName");
+            variantGroupRow = FindRow("EcomVariantGroups", variantOptionGroupIDEscaped, hasVariantGroupName ? new Func<DataRow, bool>(r => r["VariantGroupName"].ToString() == variantOptionGroupIDEscaped) : null);
             if (variantGroupRow != null)
             {
                 dataRow["VariantOptionGroupID"] = variantGroupRow["VariantGroupID"];
@@ -2552,7 +2548,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     }
 
-    private void AddVariantGroupReferenceToProductByVariantGroupName(string productID, string variantGroupsString)
+    private void AddVariantGroupReferenceToProductByVariantGroupName(string productID, string variantGroupsString, DataTable dataTable)
     {
         variantGroupsString = variantGroupsString.Replace("'", "''");
         DataRow variantGroupRow = null;
@@ -2562,8 +2558,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            var filter = new Func<DataRow, bool>(r => r["VariantGroupID"].ToString() == variantGroupsString || (r.Table.Columns.Contains("VariantGroupName") && r["VariantGroupName"].ToString() == variantGroupsString));
-            variantGroupRow = FindRow("EcomVariantGroups", filter);
+            variantGroupRow = FindRow("EcomVariantGroups", variantGroupsString, dataTable.Columns.Contains("VariantGroupName") ? new Func<DataRow, bool>(r => r["VariantGroupName"].ToString() == variantGroupsString) : null);
             if (variantGroupRow != null)
             {
                 AddVariantGroupReferenceToProduct(productID, variantGroupRow["VariantGroupID"].ToString());
@@ -2613,7 +2608,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     /// <summary>
     /// Returns true if group reference created, otherwise false
     /// </summary>
-    private bool AddGroupReferenceToProduct(string productID, string languageID, string group, int? sorting, string primaryGroup)
+    private bool AddGroupReferenceToProduct(string productID, string languageID, string group, int? sorting, string primaryGroup, DataTable dataTable)
     {
         bool result = true;
         bool isPrimary = (group == primaryGroup) ? true : false;
@@ -2630,8 +2625,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            filter = new Func<DataRow, bool>(g => g["GroupID"].ToString() == group || (g.Table.Columns.Contains("GroupName") && g["GroupName"].ToString() == group));
-            DataRow groupRow = FindRow("EcomGroups", filter);
+            DataRow groupRow = FindRow("EcomGroups", group, dataTable.Columns.Contains("GroupName") ? new Func<DataRow, bool>(g => g["GroupName"].ToString() == group) : null);
             if (groupRow != null)
             {
                 AddGroupReferenceRowToProduct(productID, groupRow["GroupID"].ToString(), sorting, isPrimary);
@@ -2683,7 +2677,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             if (collection != null)
             {
-                return collection.Values.SelectMany(v => v).Where(filter).FirstOrDefault();
+                return collection.Values.SelectMany(v => v).FirstOrDefault(filter);
             }
         }
         else
@@ -2695,7 +2689,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     collection = DataRowsToWrite[key];
                     if (collection != null)
                     {
-                        DataRow row = collection.Values.SelectMany(v => v).Where(filter).FirstOrDefault();
+                        DataRow row = collection.Values.SelectMany(v => v).FirstOrDefault(filter);
                         if (row != null)
                         {
                             return row;
@@ -2705,6 +2699,16 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
         return null;
+    }
+
+    private DataRow FindRow(string tableName, string idToLook, Func<DataRow, bool> fallbackFilter = null)
+    {
+        DataRow row = FindRow(tableName, idToLook);
+        if (row == null && fallbackFilter != null)
+        {
+            row = FindRow(tableName, fallbackFilter);
+        }
+        return row;
     }
 
     private void AddCategoryFieldValueToProduct(string productID, string productVariantId, string languageID, string categoryId, string fieldId, string value)
@@ -2765,7 +2769,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         variantOptionProductRelation["VariantOptionsProductRelationProductID"] = productID;
         variantOptionProductRelation["VariantOptionsProductRelationVariantID"] = variantOptionID;
 
-        Dictionary<string, List<DataRow>> variantOptionRelations = null;
+        Dictionary<string, List<DataRow>> variantOptionRelations;
         if (!DataRowsToWrite.TryGetValue(variantOptionProductRelation.Table.TableName, out variantOptionRelations))
         {
             variantOptionRelations = new Dictionary<string, List<DataRow>>();
@@ -3293,7 +3297,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 EnsureMapping(ecomProductsMapping, DestinationColumnMappings["EcomProducts"], tableColumnsDictionary["EcomProducts"],
                     new string[] { "ProductID", "ProductVariantID", "ProductLanguageID" });
                 EnsureMapping(ecomProductsMapping, DestinationColumnMappings["EcomProducts"], tableColumnsDictionary["EcomProducts"],
-                    new string[] { "ProductVariantProdCounter", "ProductVariantGroupCounter", "ProductVariantCounter" });
+                    new string[] { "ProductVariantProdCounter", "ProductVariantCounter" });
 
                 HandleIsKeyColumns(ecomProductsMapping, new string[] { "ProductVariantID", "ProductLanguageID" });
             }
@@ -3527,10 +3531,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 bool variantProdCounterColExist = productsDataTable.Columns.Contains("ProductVariantID") &&
                     productsDataTable.Columns.Contains("ProductVariantProdCounter");
-                bool variantGroupCounterColExist = productsDataTable.Columns.Contains("ProductVariantGroupCounter");
                 bool variantCounterColExist = productsDataTable.Columns.Contains("ProductVariantCounter");
 
-                if (!variantProdCounterColExist && !variantGroupCounterColExist && !variantCounterColExist)
+                if (!variantProdCounterColExist && !variantCounterColExist)
                 {
                     continue;
                 }
@@ -3544,7 +3547,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         string productId = row["ProductID"].ToString();
                         string langId = row["ProductLanguageID"].ToString();
                         //Check if it is already existing product row and it has filled variants counter fileds - skip it
-                        if ((row["ProductVariantProdCounter"] == System.DBNull.Value || row["ProductVariantProdCounter"].ToString() == "0") && variantProdCounterColExist)
+                        if (variantProdCounterColExist && (row["ProductVariantProdCounter"] == DBNull.Value || row["ProductVariantProdCounter"].ToString() == "0"))
                         {
                             if (string.IsNullOrEmpty(row["ProductVariantID"].ToString()))
                             {
@@ -3554,37 +3557,17 @@ internal class EcomDestinationWriter : BaseSqlWriter
                             }
                             else
                             {
-                                if (productVariantCounterDict.ContainsKey(productId + langId))
+                                if (productVariantCounterDict.TryGetValue(productId + langId, out int count))
                                 {
-                                    productVariantCounterDict[productId + langId] = productVariantCounterDict[productId + langId] + 1;
+                                    productVariantCounterDict[productId + langId] = count + 1;
+                                    row["ProductVariantProdCounter"] = count + 1;
                                 }
                                 else
                                 {
                                     productVariantCounterDict.Add(productId + langId, 0);
-                                }
-                                row["ProductVariantProdCounter"] = productVariantCounterDict[productId + langId];
-                            }
-                        }
-                        //Check if it is already existing product row and it has filled variants counter fileds - skip it
-                        if ((row["ProductVariantGroupCounter"] == System.DBNull.Value || row["ProductVariantGroupCounter"].ToString() == "0") && variantGroupCounterColExist)
-                        {
-                            int variantGroupsCount = 0;
-                            foreach (var variantGroupRows in DataRowsToWrite["EcomVariantgroupProductrelation"].Values)
-                            {
-                                foreach (var variantGroupRow in variantGroupRows)
-                                {
-                                    var variantgroupProductRelationProductId = Converter.ToString(variantGroupRow["VariantgroupProductRelationProductID"]);
-                                    if (string.Equals(variantgroupProductRelationProductId, productId.Replace("'", "''"), StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        variantGroupsCount++;
-                                    }
+                                    row["ProductVariantProdCounter"] = 0;
                                 }
                             }
-                            if (variantGroupsCount == 0)
-                            {
-                                ProductVariantGroupsCountDictionary.TryGetValue(productId, out variantGroupsCount);
-                            }
-                            row["ProductVariantGroupCounter"] = variantGroupsCount;
                         }
                         //Check if it is already existing product row and it has filled variants counter fileds - skip it
                         if ((row["ProductVariantCounter"] == System.DBNull.Value || row["ProductVariantCounter"].ToString() == "0") && variantCounterColExist)
@@ -3663,8 +3646,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
                             if (existigProductVariantIdsCombination.ContainsKey(key))
                             {
                                 string rowProductVariantId = row["ProductVariantID"].ToString();
-                                List<Tuple<string, string, string, string>> variantsInfoList = (List<Tuple<string, string, string, string>>)existigProductVariantIdsCombination[key];
-                                foreach (Tuple<string, string, string, string> variantInfo in variantsInfoList)
+                                List<Tuple<string, string, string>> variantsInfoList = (List<Tuple<string, string, string>>)existigProductVariantIdsCombination[key];
+                                foreach (Tuple<string, string, string> variantInfo in variantsInfoList)
                                 {
                                     if (string.IsNullOrEmpty(rowProductVariantId) || !string.Equals(rowProductVariantId, variantInfo.Item1))
                                     {
@@ -3672,8 +3655,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                                         newRow.ItemArray = row.ItemArray.Clone() as object[];
                                         newRow["ProductVariantID"] = variantInfo.Item1;
                                         newRow["ProductVariantCounter"] = variantInfo.Item2;
-                                        newRow["ProductVariantGroupCounter"] = variantInfo.Item3;
-                                        newRow["ProductVariantProdCounter"] = variantInfo.Item4;
+                                        newRow["ProductVariantProdCounter"] = variantInfo.Item3;
                                         rowsToAdd.Add(newRow);
                                     }
                                 }
@@ -3713,19 +3695,19 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     key = row[searchingDifferentProductsColumn].ToString();
                 }
 
-                Tuple<string, string, string, string> variantInfo = new Tuple<string, string, string, string>
+                Tuple<string, string, string> variantInfo = new Tuple<string, string, string>
                     (
                         row["ProductVariantID"].ToString(),
-                        row["ProductVariantCounter"].ToString(), row["ProductVariantGroupCounter"].ToString(), row["ProductVariantProdCounter"].ToString()
+                        row["ProductVariantCounter"].ToString(), row["ProductVariantProdCounter"].ToString()
                     );
                 if (result.ContainsKey(key))
                 {
-                    List<Tuple<string, string, string, string>> variantIDsList = (List<Tuple<string, string, string, string>>)result[key];
+                    List<Tuple<string, string, string>> variantIDsList = (List<Tuple<string, string, string>>)result[key];
                     variantIDsList.Add(variantInfo);
                 }
                 else
                 {
-                    result[key] = new List<Tuple<string, string, string, string>>() { variantInfo };
+                    result[key] = new List<Tuple<string, string, string>>() { variantInfo };
                 }
             }
         }
