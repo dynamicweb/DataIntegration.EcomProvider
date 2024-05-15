@@ -30,10 +30,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private Hashtable ecomGroupProductRelationKeys = new Hashtable();
     //Used for fast searching of VariantgroupProductrelation combinations
     private Hashtable ecomVariantgroupProductrelationKeys = new Hashtable();
-    private AssortmentHandler assortmentHandler = null;
-    private bool isParentGroupSortingInEcomGroupsMapping = false;
-    private readonly bool discardDuplicates;
-    protected DuplicateRowsHandler duplicateRowsHandler;
+    private AssortmentHandler? assortmentHandler = null;
+    private bool isParentGroupSortingInEcomGroupsMapping = false;    
+    protected DuplicateRowsHandler? duplicateRowsHandler;
     private Hashtable _processedProductsKeys = new Hashtable();
     private SortedList<string, int> ProductVariantsCountDictionary = new SortedList<string, int>();
     private SortedList<string, int> ProductVariantGroupsCountDictionary = new SortedList<string, int>();
@@ -66,21 +65,21 @@ internal class EcomDestinationWriter : BaseSqlWriter
         private set;
     }
 
-    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand commandForTest, bool deleteExcess, ILogger logger,
+    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand? commandForTest, bool deleteExcess, ILogger logger,
         bool updateOnlyExistingProducts, string defaultLanguageId, bool discardDuplicates, bool partialUpdate)
         : this(job, connection, deactivateMissinProducts, commandForTest, deleteExcess, logger,
         updateOnlyExistingProducts, defaultLanguageId, discardDuplicates, partialUpdate, false)
     {
     }
 
-    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand commandForTest, bool deleteExcess, ILogger logger,
+    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand? commandForTest, bool deleteExcess, ILogger logger,
     bool updateOnlyExistingProducts, string defaultLanguageId, bool discardDuplicates, bool partialUpdate, bool removeMissingAfterImportDestinationTablesOnly)
        : this(job, connection, deactivateMissinProducts, commandForTest, deleteExcess, logger,
         updateOnlyExistingProducts, defaultLanguageId, discardDuplicates, partialUpdate, removeMissingAfterImportDestinationTablesOnly, false, true)
     {
     }
 
-    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand commandForTest, bool deleteExcess, ILogger logger,
+    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand? commandForTest, bool deleteExcess, ILogger logger,
     bool updateOnlyExistingProducts, string defaultLanguageId, bool discardDuplicates, bool partialUpdate, bool removeMissingAfterImportDestinationTablesOnly,
     bool useStrictPrimaryKeyMatching, bool createMissingGoups)
         : this(job, connection, deactivateMissinProducts, commandForTest, deleteExcess, logger,
@@ -88,14 +87,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
     }
 
-    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand commandForTest, bool deleteExcess, ILogger logger,
+    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand? commandForTest, bool deleteExcess, ILogger logger,
     bool updateOnlyExistingProducts, string defaultLanguageId, bool discardDuplicates, bool partialUpdate, bool removeMissingAfterImportDestinationTablesOnly,
     bool useStrictPrimaryKeyMatching, bool createMissingGoups, bool skipFailingRows)
         : this(job, connection, deactivateMissinProducts, commandForTest, deleteExcess, logger,
              updateOnlyExistingProducts, defaultLanguageId, discardDuplicates, partialUpdate, removeMissingAfterImportDestinationTablesOnly, useStrictPrimaryKeyMatching, createMissingGoups, skipFailingRows, false)
     {
     }
-    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand commandForTest, bool deleteExcess, ILogger logger,
+    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand? commandForTest, bool deleteExcess, ILogger logger,
     bool updateOnlyExistingProducts, string defaultLanguageId, bool discardDuplicates, bool partialUpdate, bool removeMissingAfterImportDestinationTablesOnly,
     bool useStrictPrimaryKeyMatching, bool createMissingGoups, bool skipFailingRows, bool useProductIdFoundByNumber)
         : this(job, connection, deactivateMissinProducts, commandForTest, deleteExcess, logger,
@@ -103,10 +102,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
     }
 
-    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand commandForTest, bool deleteExcess, ILogger logger,
+    public EcomDestinationWriter(Job job, SqlConnection connection, bool deactivateMissinProducts, SqlCommand? commandForTest, bool deleteExcess, ILogger logger,
     bool updateOnlyExistingProducts, string defaultLanguageId, bool discardDuplicates, bool partialUpdate, bool removeMissingAfterImportDestinationTablesOnly,
     bool useStrictPrimaryKeyMatching, bool createMissingGoups, bool skipFailingRows, bool useProductIdFoundByNumber, bool ignoreEmptyCategoryFieldValues)
     {
+        Ensure.NotNull(job);
         deactivateMissingProducts = deactivateMissinProducts;
         this.updateOnlyExistingProducts = updateOnlyExistingProducts;
         this.deleteExcess = deleteExcess;
@@ -129,33 +129,24 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         if (string.IsNullOrEmpty(defaultLanguageId))
         {
-            sqlCommand.CommandText =
-                  "select top(1) ecomlanguages.languageid from ecomlanguages where ecomlanguages.languageisdefault=1";
-            var result = sqlCommand.ExecuteReader();
-            if (result.Read())
-            {
-                _defaultLanguageId = result["languageid"].ToString();
-            }
-            else
-            {
+            _defaultLanguageId = Ecommerce.Services.Languages.GetDefaultLanguageId();            
+            if (string.IsNullOrEmpty(_defaultLanguageId)) 
+            {                 
                 _defaultLanguageId = "LANG1";
-            }
-            result.Close();
+            }            
         }
         else
         {
             _defaultLanguageId = defaultLanguageId;
         }
         assortmentHandler = new AssortmentHandler(sqlCommand, this.logger);
-        if (this.job != null && this.job.Mappings != null)
-        {
-            Dictionary<string, Column> ecomGroupsMapping = null;
-            if (DestinationColumnMappings.TryGetValue("EcomGroups", out ecomGroupsMapping) && ecomGroupsMapping.ContainsKey("ParentGroupsSorting"))
+        if (this.job.Mappings != null)
+        {             
+            if (DestinationColumnMappings.TryGetValue("EcomGroups", out Dictionary<string, Column>? ecomGroupsMapping) && ecomGroupsMapping.ContainsKey("ParentGroupsSorting"))
             {
                 isParentGroupSortingInEcomGroupsMapping = true;
             }
-        }
-        this.discardDuplicates = discardDuplicates;
+        }        
         bool discardDuplicatesFromMapping = false;
         if (!discardDuplicates)
         {
@@ -180,7 +171,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         this.useStrictPrimaryKeyMatching = useStrictPrimaryKeyMatching;
         _createMissingGoups = createMissingGoups;
         _skipFailingRows = skipFailingRows;
-        if (useProductIdFoundByNumber && DestinationColumnMappings.TryGetValue("EcomProducts", out Dictionary<string, Column> mapping)
+        if (useProductIdFoundByNumber && DestinationColumnMappings.TryGetValue("EcomProducts", out Dictionary<string, Column>? mapping)
             && mapping.ContainsKey("ProductNumber") && mapping.ContainsKey("ProductVariantID"))
         {
             _useProductIdFoundByNumber = true;
@@ -202,7 +193,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void InitMappingsByTableName(Mapping mapping)
     {
-        List<Mapping> mappingsList = null;
+        List<Mapping>? mappingsList = null;
         if (!Mappings.TryGetValue(mapping.DestinationTable.Name, out mappingsList))
         {
             mappingsList = new List<Mapping>();
@@ -214,8 +205,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private void InitColumnMappings(Mapping mapping, ColumnMappingCollection mappings)
     {
         string tableName = mapping.DestinationTable.Name;
-        Dictionary<string, Column> destinationColumnMappingDictionary = null;
-        Dictionary<string, ColumnMapping> sourceColumnMappingDictionary = null;
+        Dictionary<string, Column>? destinationColumnMappingDictionary;
+        Dictionary<string, ColumnMapping>? sourceColumnMappingDictionary;
         if (!SourceColumnMappings.TryGetValue(mapping.GetId(), out sourceColumnMappingDictionary))
         {
             sourceColumnMappingDictionary = new Dictionary<string, ColumnMapping>(StringComparer.OrdinalIgnoreCase);
@@ -242,7 +233,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void InitDestinationColumns(string tableName, ColumnCollection columns)
     {
-        Dictionary<string, Column> destinationColumnDictionary = null;
+        Dictionary<string, Column>? destinationColumnDictionary;
         if (!DestinationColumns.TryGetValue(tableName, out destinationColumnDictionary))
         {
             destinationColumnDictionary = new Dictionary<string, Column>(StringComparer.OrdinalIgnoreCase);
@@ -257,7 +248,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    public void CreateTempTable(string tempTableSchema, string tempTableName, string tempTablePrefix, List<SqlColumn> destinationColumns, ILogger logger)
+    public void CreateTempTable(string? tempTableSchema, string tempTableName, string tempTablePrefix, List<SqlColumn> destinationColumns, ILogger logger)
     {
         SQLTable.CreateTempTable(sqlCommand, tempTableSchema, tempTableName, tempTablePrefix, destinationColumns, logger);
     }
@@ -265,8 +256,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         foreach (Table table in job.Destination.GetSchema().GetTables())
         {
-            Dictionary<string, Column> columnMappingDictionary = null;
-            if (DestinationColumnMappings.TryGetValue(table.Name, out columnMappingDictionary))
+            if (DestinationColumnMappings.TryGetValue(table.Name, out Dictionary<string, Column>? columnMappingDictionary))
             {
 
                 List<SqlColumn> destColumns = new List<SqlColumn>();
@@ -278,92 +268,91 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 switch (table.Name)
                 {
                     case "EcomVariantGroups":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantGroupID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantGroupLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantGroupID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantGroupLanguageID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
                         break;
                     case "EcomVariantsOptions":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionLanguageID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
                         break;
                     case "EcomProducts":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductVariantID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductID", typeof(string), SqlDbType.NVarChar, null, 30, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductDefaultShopId", typeof(string), SqlDbType.NVarChar, null, 255, false, false, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductVariantID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductID", typeof(string), SqlDbType.NVarChar, 30, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductLanguageID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductDefaultShopId", typeof(string), SqlDbType.NVarChar, 255, false, false, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantProdCounter");
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantCounter");
                         break;
                     case "EcomProductCategoryFieldValue":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueFieldCategoryId", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductId", typeof(string), SqlDbType.NVarChar, null, 30, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductVariantId", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductLanguageId", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueFieldCategoryId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductId", typeof(string), SqlDbType.NVarChar, 30, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductVariantId", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductLanguageId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
                         break;
                     case "EcomPrices":
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "PriceID");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceCurrency", typeof(string), SqlDbType.NVarChar, null, 3, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceShopId", typeof(string), SqlDbType.NVarChar, null, 255, false, false, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceCurrency", typeof(string), SqlDbType.NVarChar, 3, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceShopId", typeof(string), SqlDbType.NVarChar, 255, false, false, false);
                         break;
                     case "EcomDiscount":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountAccessUserId", typeof(int), SqlDbType.Int, null, -1, false, false, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountAccessUserGroupId", typeof(int), SqlDbType.Int, null, -1, false, false, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountCurrencyCode", typeof(string), SqlDbType.NVarChar, null, 3, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountAccessUserId", typeof(int), SqlDbType.Int, -1, false, false, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountAccessUserGroupId", typeof(int), SqlDbType.Int, -1, false, false, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountCurrencyCode", typeof(string), SqlDbType.NVarChar, 3, false, true, false);
                         break;
                     case "EcomGroups":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "GroupLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "GroupID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "GroupLanguageID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "GroupID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
                         break;
                     case "EcomProductsRelated":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductRelID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedGroupID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductRelVariantID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductRelID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedGroupID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductRelVariantID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
                         break;
                     case "EcomStockUnit":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockUnitProductID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockUnitVariantID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockUnitID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockUnitProductID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockUnitVariantID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockUnitID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
                         break;
                     case "EcomManufacturers":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ManufacturerID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ManufacturerName", typeof(string), SqlDbType.NVarChar, null, 252, false, false, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ManufacturerID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ManufacturerName", typeof(string), SqlDbType.NVarChar, 252, false, false, false);
                         break;
                     case "EcomDetails":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DetailID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DetailLanguageId", typeof(string), SqlDbType.NVarChar, null, 50, false, false, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DetailID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DetailLanguageId", typeof(string), SqlDbType.NVarChar, 50, false, false, false);
                         break;
                     case "EcomAssortmentPermissions":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentPermissionAccessUserID", typeof(string), SqlDbType.Int, null, -1, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentPermissionAccessUserID", typeof(string), SqlDbType.Int, -1, false, true, false);
                         break;
                     case "EcomVariantOptionsProductRelation":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionsProductRelationProductID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionsProductRelationVariantID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionsProductRelationProductID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionsProductRelationVariantID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
                         break;
                     case "EcomAssortments":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentLanguageID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
                         break;
                     case "EcomAssortmentShopRelations":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentShopRelationShopID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentShopRelationShopID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
                         break;
                     case "EcomCurrencies":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CurrencyCode", typeof(string), SqlDbType.NVarChar, null, 3, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CurrencyLanguageId", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CurrencyCode", typeof(string), SqlDbType.NVarChar, 3, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CurrencyLanguageId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
                         break;
                     case "EcomCountries":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryCode2", typeof(string), SqlDbType.NVarChar, null, 2, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryCultureInfo", typeof(string), SqlDbType.NVarChar, null, 15, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryRegionCode", typeof(string), SqlDbType.NVarChar, null, 3, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryCode2", typeof(string), SqlDbType.NVarChar, 2, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryCultureInfo", typeof(string), SqlDbType.NVarChar, 15, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryRegionCode", typeof(string), SqlDbType.NVarChar, 3, false, true, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "CountryVAT");
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "CountryCode3");
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "CountryCurrencyCode");
                         break;
                     case "EcomStockLocation":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationName", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationGroupId", typeof(string), SqlDbType.BigInt, null, -1, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationName", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationGroupId", typeof(string), SqlDbType.BigInt, -1, false, true, false);
                         break;
-                }
-                List<Mapping> tableMappings = null;
-                if (Mappings.TryGetValue(table.Name, out tableMappings))
+                }                
+                if (Mappings.TryGetValue(table.Name, out List<Mapping>? tableMappings))
                 {
                     foreach (var mapping in tableMappings)
                     {
@@ -505,11 +494,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
         AddTableToDataset(groupRelations, "EcomGroupRelations");
     }
 
-    private static void EnsureDestinationColumn(Dictionary<string, Column> columnMappingDictionary, List<SqlColumn> destColumns, string columnName, Type type, SqlDbType dbType, Table dbtable, int limit, bool isIdentity, bool isPrimaryKey, bool isNew)
+    private static void EnsureDestinationColumn(Dictionary<string, Column> columnMappingDictionary, List<SqlColumn> destColumns, string columnName, Type type, SqlDbType dbType, int limit, bool isIdentity, bool isPrimaryKey, bool isNew)
     {
         if (!columnMappingDictionary.ContainsKey(columnName))
         {
-            destColumns.Add(new SqlColumn(columnName, type, dbType, dbtable, limit, isIdentity, isPrimaryKey, isNew));
+            destColumns.Add(new SqlColumn(columnName, type, dbType, null, limit, isIdentity, isPrimaryKey, isNew));
         }
     }
 
@@ -737,13 +726,13 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             if (reader.Read())
             {
-                return reader["lastID"] != DBNull.Value ? int.Parse(reader["lastID"].ToString()) : 0;
+                return reader["lastID"] != DBNull.Value ? Converter.ToInt32(reader["lastID"]) : 0;
             }
             return 0;
         }
     }
 
-    internal Dictionary<string, DataRow> _variantGroups = null;
+    internal Dictionary<string, DataRow>? _variantGroups = null;
     private Dictionary<string, DataRow> VariantGroups
     {
         get
@@ -765,12 +754,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    internal HashSet<string> _existingVariantOptionsList;
-    private HashSet<string> GetVariantOptionList()
+    internal HashSet<string?>? _existingVariantOptionsList;
+    private HashSet<string?> GetVariantOptionList()
     {
         if (_existingVariantOptionsList == null)
         {
-            _existingVariantOptionsList = new HashSet<string>();
+            _existingVariantOptionsList = new HashSet<string?>();
             using (var reader = Database.CreateDataReader(CommandBuilder.Create("select VariantOptionID from EcomVariantsOptions"), sqlCommand.Connection))
             {
                 while (reader.Read())
@@ -782,7 +771,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return _existingVariantOptionsList;
     }
 
-    internal Dictionary<string, DataRow> _ecomLanguages;
+    internal Dictionary<string, DataRow>? _ecomLanguages;
     private Dictionary<string, DataRow> EcomLanguages
     {
         get
@@ -801,7 +790,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    internal Dictionary<string, List<DataRow>> _productsRelatedGroups;
+    internal Dictionary<string, List<DataRow>>? _productsRelatedGroups;
     protected Dictionary<string, List<DataRow>> ProductsRelatedGroups
     {
         get
@@ -812,9 +801,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 DataSet dataSet = Database.CreateDataSet(CommandBuilder.Create("select RelatedGroupID, RelatedGroupName, RelatedGroupLanguageID from EcomProductsRelatedGroups"), sqlCommand.Connection);
                 foreach (DataRow row in dataSet.Tables[0].Rows)
                 {
-                    var rowId = Converter.ToString(row["RelatedGroupID"]);
-                    List<DataRow> rows = null;
-                    if (!_productsRelatedGroups.TryGetValue(rowId, out rows))
+                    var rowId = Converter.ToString(row["RelatedGroupID"]);                    
+                    if (!_productsRelatedGroups.TryGetValue(rowId, out List<DataRow>? rows))
                     {
                         rows = new List<DataRow>();
                         _productsRelatedGroups.Add(rowId, rows);
@@ -827,7 +815,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    internal Dictionary<string, DataRow> _productManufacturers;
+    internal Dictionary<string, DataRow>? _productManufacturers;
     protected Dictionary<string, DataRow> ProductManufacturers
     {
         get
@@ -850,7 +838,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    internal Dictionary<string, DataRow> _ecomShops;
+    internal Dictionary<string, DataRow>? _ecomShops;
     private Dictionary<string, DataRow> EcomShops
     {
         get
@@ -869,7 +857,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    internal Dictionary<string, List<DataRow>> _productGroups;
+    internal Dictionary<string, List<DataRow>>? _productGroups;
     protected Dictionary<string, List<DataRow>> ProductGroups
     {
         get
@@ -880,9 +868,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 DataSet dataSet = Database.CreateDataSet(CommandBuilder.Create("select GroupID, GroupName, GroupNumber from EcomGroups"), sqlCommand.Connection);
                 foreach (DataRow row in dataSet.Tables[0].Rows)
                 {
-                    var rowId = Converter.ToString(row["GroupID"]);
-                    List<DataRow> rows = null;
-                    if (!_productGroups.TryGetValue(rowId, out rows))
+                    var rowId = Converter.ToString(row["GroupID"]);                    
+                    if (!_productGroups.TryGetValue(rowId, out List<DataRow>? rows))
                     {
                         rows = new List<DataRow>();
                         _productGroups.Add(rowId, rows);
@@ -895,7 +882,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    internal Dictionary<string, DataRow> _productCategoryFields;
+    internal Dictionary<string, DataRow>? _productCategoryFields;
     protected Dictionary<string, DataRow> ProductCategoryFields
     {
         get
@@ -921,7 +908,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     }
 
     internal readonly string _sortingKeySeparator = ";";
-    internal Dictionary<string, int> _shopGroupRelationSorting = null;
+    internal Dictionary<string, int>? _shopGroupRelationSorting = null;
     protected Dictionary<string, int> ShopGroupRelationSorting
     {
         get
@@ -942,7 +929,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    internal Dictionary<string, int> _groupRelationSorting = null;
+    internal Dictionary<string, int>? _groupRelationSorting = null;
     protected Dictionary<string, int> GroupRelationSorting
     {
         get
@@ -963,7 +950,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    internal DataTable _existingProducts;
+    internal DataTable? _existingProducts;
     protected DataTable ExistingProducts
     {
         get
@@ -989,7 +976,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private Dictionary<string, (string ProductId, string ProductVariantId)> _productNumberVariantIds;
+    private Dictionary<string, (string ProductId, string ProductVariantId)>? _productNumberVariantIds;
     protected Dictionary<string, (string ProductId, string ProductVariantId)> ProductNumberVariantIds
     {
         get
@@ -1002,10 +989,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 {
                     foreach (var row in ExistingProducts.Select("ProductNumber <> '' and ProductVariantID <> '' and ProductLanguageID = '" + _defaultLanguageId + "'"))
                     {
-                        string number = row["ProductNumber"].ToString();
+                        string number = row["ProductNumber"].ToString() ?? "";
                         if (!_productNumberVariantIds.ContainsKey(number))
                         {
-                            _productNumberVariantIds.Add(number, (row["ProductID"].ToString(), row["ProductVariantID"].ToString()));
+                            _productNumberVariantIds.Add(number, (row["ProductID"].ToString() ?? "", row["ProductVariantID"].ToString() ?? ""));
                         }
                     }
                 }
@@ -1014,7 +1001,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    internal Dictionary<string, Tuple<bool, int>> _existingGroupProductRelations = null;
+    internal Dictionary<string, Tuple<bool, int>>? _existingGroupProductRelations = null;
     protected Dictionary<string, Tuple<bool, int>> ExistingGroupProductRelations
     {
         get
@@ -1037,7 +1024,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    internal Dictionary<string, DataRow> _primaryGroupProductRelations = null;
+    internal Dictionary<string, DataRow>? _primaryGroupProductRelations = null;
     protected Dictionary<string, DataRow> PrimaryGroupProductRelations
     {
         get
@@ -1059,7 +1046,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         }
     }
-    private DataTable _existingUserGroups;
+    private DataTable? _existingUserGroups;
     private DataTable ExistingUserGroups
     {
         get
@@ -1073,7 +1060,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private DataTable _existingUsers;
+    private DataTable? _existingUsers;
     private DataTable ExistingUsers
     {
         get
@@ -1090,36 +1077,39 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private int _currentlyWritingMappingId = 0;
     private long _writtenRowsCount = 0;
     public void Write(Dictionary<string, object> row, Mapping mapping, bool discardDuplicates)
-    {
-        Dictionary<string, ColumnMapping> columnMappings = null;
-        DataRow dataRow = DataToWrite.Tables[GetTableName(mapping.DestinationTable.Name, mapping)].NewRow();
+    {        
+        DataRow? dataRow = DataToWrite.Tables[GetTableName(mapping.DestinationTable.Name, mapping)]?.NewRow();
+        if (dataRow is null)
+            return;
 
         var mappingColumns = ColumnMappingsByMappingId[mapping.GetId()];
         foreach (ColumnMapping columnMapping in mappingColumns)
         {
-            if ((columnMapping.DestinationColumn != null && columnMapping.SourceColumn != null && row.ContainsKey(columnMapping.SourceColumn.Name)) || columnMapping.HasScriptWithValue)
+            if ((columnMapping.DestinationColumn is not null && columnMapping.SourceColumn is not null && row.ContainsKey(columnMapping.SourceColumn.Name)) || columnMapping.HasScriptWithValue)
             {
-                if (mapping.DestinationTable.Name.Equals("EcomStockUnit", StringComparison.OrdinalIgnoreCase) && columnMapping.DestinationColumn.Name.Equals("StockUnitStockLocationId", StringComparison.OrdinalIgnoreCase))
+                if (mapping.DestinationTable.Name.Equals("EcomStockUnit", StringComparison.OrdinalIgnoreCase) && columnMapping.DestinationColumn is not null && columnMapping.DestinationColumn.Name.Equals("StockUnitStockLocationId", StringComparison.OrdinalIgnoreCase))
                 {
                     var stockLocationID = GetStockLocationIdByName(row, columnMapping);
                     dataRow[columnMapping.DestinationColumn.Name] = stockLocationID;
-                    row[columnMapping.SourceColumn.Name] = stockLocationID;
+                    if(columnMapping.SourceColumn is not null)
+                        row[columnMapping.SourceColumn.Name] = stockLocationID;
                 }
 
-                if (mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() < columnMapping.GetId()))
+                if (columnMapping.DestinationColumn is not null && columnMapping.SourceColumn is not null && mappingColumns.Any(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name && obj.GetId() < columnMapping.GetId()))
                 {
                     dataRow[columnMapping.DestinationColumn.Name] += columnMapping.ConvertInputValueToOutputValue(row[columnMapping.SourceColumn.Name]) + "";
                 }
-                else if (columnMapping.HasScriptWithValue)
+                else if (columnMapping.HasScriptWithValue && columnMapping.DestinationColumn is not null)
                 {
                     dataRow[columnMapping.DestinationColumn.Name] = columnMapping.GetScriptValue();
                 }
                 else
                 {
-                    var rowValue = row[columnMapping.SourceColumn.Name];
+                    var rowValue = columnMapping.SourceColumn is not null ? row[columnMapping.SourceColumn.Name] : null;
                     if (IsColumnNullableAndValueNull(columnMapping, rowValue))
                         continue;
-                    dataRow[columnMapping.DestinationColumn.Name] = columnMapping.ConvertInputValueToOutputValue(row[columnMapping.SourceColumn.Name]);
+                    if (columnMapping.DestinationColumn is not null && columnMapping.SourceColumn is not null)
+                        dataRow[columnMapping.DestinationColumn.Name] = columnMapping.ConvertInputValueToOutputValue(row[columnMapping.SourceColumn.Name]);
                 }
             }
             else
@@ -1134,12 +1124,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     {
                         logger.Error($"The SourceColumn is null for the table mapping {mapping.SourceTable?.Name} to {mapping.DestinationTable?.Name} on DestinationColumn {columnMapping.DestinationColumn?.Name}");
                     }
-                    throw new Exception(BaseDestinationWriter.GetRowValueNotFoundMessage(row, columnMapping.SourceColumn.Table.Name, columnMapping.SourceColumn.Name));
+                    throw new Exception(GetRowValueNotFoundMessage(row, columnMapping.SourceColumn?.Table.Name, columnMapping.SourceColumn?.Name));
                 }
             }
         }
 
-        columnMappings = SourceColumnMappings[mapping.GetId()];
+        Dictionary<string, ColumnMapping> columnMappings = SourceColumnMappings[mapping.GetId()];
         switch (mapping.DestinationTable.Name)
         {
             case "EcomProductCategoryFieldValue":
@@ -1195,7 +1185,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         foreach (ColumnMapping columnMapping in mappingColumns)
         {
-            object rowValue = null;
+            object? rowValue = null;
             if (columnMapping.HasScriptWithValue || row.TryGetValue(columnMapping.SourceColumn?.Name ?? "", out rowValue))
             {
                 if (IsColumnNullableAndValueNull(columnMapping, rowValue))
@@ -1213,15 +1203,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
             }
         }
-        if (!discardDuplicates || !duplicateRowsHandler.IsRowDuplicate(mappingColumns.Where(cm => cm.Active), mapping, dataRow, row))
+        if (!discardDuplicates || (duplicateRowsHandler is not null && !duplicateRowsHandler.IsRowDuplicate(mappingColumns.Where(cm => cm.Active), mapping, dataRow, row)))
         {
             var tableName = GetTableName(mapping.DestinationTable.Name, mapping);
             var tableKey = GetTableKey(mapping.DestinationTable.Name);
             if (!string.IsNullOrWhiteSpace(tableKey))
             {
-                var rowId = Converter.ToString(dataRow[tableKey]);
-                List<DataRow> rows = null;
-                if (!DataRowsToWrite[tableName].TryGetValue(rowId, out rows))
+                var rowId = Converter.ToString(dataRow[tableKey]);                
+                if (!DataRowsToWrite[tableName].TryGetValue(rowId, out List<DataRow>? rows))
                 {
                     rows = new List<DataRow>();
 
@@ -1244,11 +1233,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 logger.Log("Added " + _writtenRowsCount + " rows to temporary table for " + mapping.DestinationTable.Name + ".");
             }
 
-            assortmentHandler.ProcessAssortments(dataRow, mapping);
+            assortmentHandler?.ProcessAssortments(dataRow, mapping);
         }
     }
 
-    private static bool IsColumnNullableAndValueNull(ColumnMapping columnMapping, object rowValue) => Nullable.GetUnderlyingType(columnMapping.DestinationColumn.Type) == null
+    private static bool IsColumnNullableAndValueNull(ColumnMapping columnMapping, object? rowValue) => Nullable.GetUnderlyingType(columnMapping.DestinationColumn.Type) == null
                             && (rowValue is null || string.IsNullOrEmpty(rowValue.ToString()))
                             && columnMapping.DestinationColumn.Type != typeof(string);
 
@@ -1278,7 +1267,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private bool WriteProducts(Dictionary<string, object> row, Mapping mapping, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
         //Create ID if missing  
-        DataRow existingProductRow = null;
+        DataRow? existingProductRow = null;
         string productLanguageID = HandleProductLanguageId(row, columnMappings, dataRow);
         string productID = HandleProductId(row, mapping, columnMappings, dataRow, ref existingProductRow, productLanguageID);
         string productVariantID = HandleVariantId(row, columnMappings, dataRow, existingProductRow, ref productID);
@@ -1298,10 +1287,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
         HandleProductManufacturers(row, columnMappings, dataRow);
 
         //Find VariantRelations, create if missing, Add Variant Relations
-        string variantGroupsString = HandleProductVariantGroups(row, columnMappings, productID, dataRow.Table);
+        string? variantGroupsString = HandleProductVariantGroups(row, columnMappings, productID, dataRow.Table);
 
         //Find VariantRelations, create if missing, Add Variant Relations
-        string variantOptionsString = HandleProductVariantOptions(row, columnMappings, productID, dataRow.Table);
+        string? variantOptionsString = HandleProductVariantOptions(row, columnMappings, productID, dataRow.Table);
 
         if (string.IsNullOrEmpty(variantGroupsString) && string.IsNullOrEmpty(variantOptionsString) && !string.IsNullOrEmpty(productVariantID))
         {
@@ -1335,8 +1324,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         if (_useProductIdFoundByNumber)
         {
-            columnMappings.TryGetValue("ProductNumber", out ColumnMapping column);
-            string productNumber = GetValue(column, row);
+            columnMappings.TryGetValue("ProductNumber", out ColumnMapping? column);
+            string? productNumber = GetValue(column, row);
             if (!string.IsNullOrEmpty(productNumber) &&
                 ProductNumberVariantIds.TryGetValue(productNumber, out (string ProductId, string VariantId) id))
             {
@@ -1348,11 +1337,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private string HandleProductVariantOptions(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID, DataTable dataTable)
+    private string? HandleProductVariantOptions(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID, DataTable dataTable)
     {
-        ColumnMapping column = null;
+        ColumnMapping? column = null;
         columnMappings.TryGetValue("VariantOptions", out column);
-        string variantOptionsString = GetMergedValue(column, row);
+        string? variantOptionsString = GetMergedValue(column, row);
         if (!string.IsNullOrEmpty(variantOptionsString))
         {
             var variantOptionIds = SplitOnComma(variantOptionsString);
@@ -1384,11 +1373,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return variantOptionsString;
     }
 
-    private string HandleProductVariantGroups(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID, DataTable dataTable)
+    private string? HandleProductVariantGroups(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID, DataTable dataTable)
     {
-        ColumnMapping column = null;
+        ColumnMapping? column = null;
         columnMappings.TryGetValue("VariantGroups", out column);
-        string variantGroupsString = GetValue(column, row);
+        string? variantGroupsString = GetValue(column, row);
         if (!string.IsNullOrEmpty(variantGroupsString))
         {
             var variantGroupId = SplitOnComma(variantGroupsString);
@@ -1404,13 +1393,13 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void HandleProductManufacturers(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        ColumnMapping columnMapping = null;
+        ColumnMapping? columnMapping = null;
         if (columnMappings.TryGetValue("ProductManufacturerID", out columnMapping) && columnMapping.Active && columnMapping.DestinationColumn != null)
         {
-            string manufacturer = GetValue(columnMapping, row);
+            string? manufacturer = GetValue(columnMapping, row);
             if (!string.IsNullOrEmpty(manufacturer))
             {
-                DataRow manufacturerRow = null;
+                DataRow? manufacturerRow = null;
                 ProductManufacturers.TryGetValue(manufacturer, out manufacturerRow);
                 if (manufacturerRow == null)
                 {
@@ -1433,7 +1422,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         LastManufacturerId = LastManufacturerId + 1;
                         newManufacturer["ManufacturerID"] = "ImportedMANU" + LastManufacturerId;
                         newManufacturer["ManufacturerName"] = manufacturer;
-                        Dictionary<string, List<DataRow>> manufacturers = null;
+                        Dictionary<string, List<DataRow>>? manufacturers = null;
                         if (!DataRowsToWrite.TryGetValue(newManufacturer.Table.TableName, out manufacturers))
                         {
                             manufacturers = new Dictionary<string, List<DataRow>>();
@@ -1450,19 +1439,19 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void HandleProductGroups(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string productID, string productLanguageID, DataTable dataTable)
     {
-        ColumnMapping column = null;
+        ColumnMapping? column = null;
         columnMappings.TryGetValue("Groups", out column);
-        string groups = GetValue(column, row);
+        string? groups = GetValue(column, row);
         string group = string.Empty;
         if (!string.IsNullOrEmpty(groups))
         {
             try
             {
-                ColumnMapping sortingColumn = null;
+                ColumnMapping? sortingColumn = null;
                 columnMappings.TryGetValue("GroupSorting", out sortingColumn);
                 string groupSorting = Converter.ToString(GetValue(sortingColumn, row));
 
-                ColumnMapping primaryGroupColumn = null;
+                ColumnMapping? primaryGroupColumn = null;
                 columnMappings.TryGetValue("PrimaryGroup", out primaryGroupColumn);
                 string primaryGroup = Converter.ToString(GetValue(primaryGroupColumn, row));
 
@@ -1489,11 +1478,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 if (missingGroups.Count > 0)
                 {
-                    Dictionary<string, object> cloneRow = new Dictionary<string, object>(row);
-                    if (!cloneRow.ContainsKey("Groups"))
-                    {
-                        cloneRow.Add("Groups", null);
-                    }
+                    Dictionary<string, object> cloneRow = new Dictionary<string, object>(row);                    
                     cloneRow["Groups"] = string.Join(",", missingGroups.Distinct());
                     _rowsWithMissingGroups.Add(cloneRow);
                 }
@@ -1532,7 +1517,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         categoryId = tokens[1];
                         fieldId = tokens[2];
 
-                        string value = GetValue(categoryFieldMapping, row);
+                        string? value = GetValue(categoryFieldMapping, row);
                         if (!_ignoreEmptyCategoryFieldValues || !string.IsNullOrEmpty(value))
                         {
                             AddCategoryFieldValueToProduct(productID, productVariantId, productLanguageID, categoryId, fieldId, value);
@@ -1547,9 +1532,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private static string[] SplitOnComma(string inputString)
+    private static string[] SplitOnComma(string? inputString)
     {
-        return InternalSplitOnComma(inputString).ToArray();
+        return inputString is not null ? InternalSplitOnComma(inputString).ToArray() : new string[0];
     }
 
     private static IEnumerable<string> InternalSplitOnComma(string input)
@@ -1562,14 +1547,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private string HandleVariantId(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow, DataRow existingProductRow,
+    private string HandleVariantId(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow, DataRow? existingProductRow,
         ref string productId)
     {
         string productVariantID;
-        columnMappings.TryGetValue("ProductVariantID", out ColumnMapping column);
+        columnMappings.TryGetValue("ProductVariantID", out ColumnMapping? column);
         if (column == null || column.SourceColumn == null || string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
         {
-            productVariantID = existingProductRow != null ? existingProductRow["ProductVariantID"].ToString() : "";
+            productVariantID = existingProductRow != null ? existingProductRow["ProductVariantID"].ToString() ?? "" : "";
             if (column != null)
             {
                 HandleProductIdFoundByNumber(row, columnMappings, dataRow, ref productId, ref productVariantID);
@@ -1578,7 +1563,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            productVariantID = GetMergedValue(column, row);
+            productVariantID = GetMergedValue(column, row) ?? "";
             HandleProductIdFoundByNumber(row, columnMappings, dataRow, ref productId, ref productVariantID);
         }
 
@@ -1587,7 +1572,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private string HandleProductLanguageId(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        ColumnMapping column = null;
+        ColumnMapping? column = null;
         columnMappings.TryGetValue("ProductLanguageID", out column);
         string productLanguageID = _defaultLanguageId;
         if (column != null && column.SourceColumn != null && column.Active && column.ScriptType != ScriptType.Constant && !string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
@@ -1607,14 +1592,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return productLanguageID;
     }
 
-    private string HandleProductId(Dictionary<string, object> row, Mapping mapping, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow, ref DataRow existingProductRow, string productLanguageId)
+    private string HandleProductId(Dictionary<string, object> row, Mapping mapping, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow, ref DataRow? existingProductRow, string productLanguageId)
     {
         string productID;
-        ColumnMapping column = null;
+        ColumnMapping? column = null;
         columnMappings.TryGetValue("ProductID", out column);
-        ColumnMapping productNumberColumn = null;
+        ColumnMapping? productNumberColumn = null;
         columnMappings.TryGetValue("ProductNumber", out productNumberColumn);
-        ColumnMapping productNameColumn = null;
+        ColumnMapping? productNameColumn = null;
         columnMappings.TryGetValue("ProductName", out productNameColumn);
         if (column == null)
         {
@@ -1626,7 +1611,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
             else
             {
-                productID = existingProductRow["ProductID"].ToString();
+                productID = existingProductRow["ProductID"].ToString() ?? "";
             }
             dataRow["ProductID"] = productID;
             row["ProductID"] = productID;
@@ -1641,17 +1626,17 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
             else
             {
-                productID = existingProductRow["ProductID"].ToString();
+                productID = existingProductRow["ProductID"].ToString() ?? "";
             }
             row[column.SourceColumn.Name] = productID;
         }
         else
         {
-            productID = row[column.SourceColumn.Name].ToString();
+            productID = row[column.SourceColumn.Name].ToString() ?? "";
         }
         if (productNumberColumn != null)
         {
-            string productNumber = row[productNumberColumn.SourceColumn.Name].ToString();
+            string? productNumber = row[productNumberColumn.SourceColumn.Name].ToString();
             if (!string.IsNullOrEmpty(productNumber))
             {
                 if (!ImportedProductsByNumber.ContainsKey(productNumber))
@@ -1673,36 +1658,36 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private bool WriteAssortments(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        ColumnMapping assortmentIdColumn = null;
+        ColumnMapping? assortmentIdColumn = null;
         if (columnMappings.TryGetValue("AssortmentPermissionAssortmentID", out assortmentIdColumn) && row[assortmentIdColumn.SourceColumn.Name] != DBNull.Value && !string.IsNullOrEmpty(Converter.ToString(row[assortmentIdColumn.SourceColumn.Name])))
         {
-            string assortmentID = row[assortmentIdColumn.SourceColumn.Name].ToString();
+            string assortmentID = Converter.ToString(row[assortmentIdColumn.SourceColumn.Name]);
             List<string> userIDs = new List<string>();
-            ColumnMapping assortmentCustomerNumberColumn = null;
+            ColumnMapping? assortmentCustomerNumberColumn = null;
             if (columnMappings.TryGetValue("AssortmentPermissionCustomerNumber", out assortmentCustomerNumberColumn) && assortmentCustomerNumberColumn.Active && row[assortmentCustomerNumberColumn.SourceColumn.Name] != System.DBNull.Value)
             {
-                string userNumber = row[assortmentCustomerNumberColumn.SourceColumn.Name].ToString();
+                string? userNumber = row[assortmentCustomerNumberColumn.SourceColumn.Name].ToString();
                 if (!string.IsNullOrEmpty(userNumber))
                 {
-                    userIDs = ExistingUsers.Select("AccessUserCustomerNumber='" + userNumber.Replace("'", "''") + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+                    userIDs = ExistingUsers.Select("AccessUserCustomerNumber='" + userNumber.Replace("'", "''") + "'").Select(r => Converter.ToString(r["AccessUserID"])).ToList();
                 }
             }
-            ColumnMapping externalIdmapping = null;
+            ColumnMapping? externalIdmapping = null;
             if (columnMappings.TryGetValue("AssortmentPermissionExternalID", out externalIdmapping) && externalIdmapping.Active && row[externalIdmapping.SourceColumn.Name] != DBNull.Value)
             {
-                string externalId = row[externalIdmapping.SourceColumn.Name].ToString();
+                string? externalId = row[externalIdmapping.SourceColumn.Name].ToString();
                 if (!string.IsNullOrEmpty(externalId))
                 {
-                    userIDs.AddRange(ExistingUsers.Select("AccessUserExternalID='" + externalId.Replace("'", "''") + "'").Select(r => r["AccessUserID"].ToString()));
+                    userIDs.AddRange(ExistingUsers.Select("AccessUserExternalID='" + externalId.Replace("'", "''") + "'").Select(r => Converter.ToString(r["AccessUserID"])));
                 }
             }
-            ColumnMapping userIdMapping = null;
+            ColumnMapping? userIdMapping = null;
             if (columnMappings.TryGetValue("AssortmentPermissionAccessUserID", out userIdMapping) && userIdMapping.Active && row[userIdMapping.SourceColumn.Name] != DBNull.Value)
             {
-                string id = row[userIdMapping.SourceColumn.Name].ToString();
+                string? id = row[userIdMapping.SourceColumn.Name].ToString();
                 if (!string.IsNullOrEmpty(id))
                 {
-                    userIDs.AddRange(ExistingUsers.Select("AccessUserID='" + id.Replace("'", "''") + "'").Select(r => r["AccessUserID"].ToString()));
+                    userIDs.AddRange(ExistingUsers.Select("AccessUserID='" + id.Replace("'", "''") + "'").Select(r => Converter.ToString(r["AccessUserID"])));
                 }
             }
             foreach (string userID in userIDs.Distinct())
@@ -1717,7 +1702,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void WriteDetails(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        ColumnMapping detailIdColumn = null;
+        ColumnMapping? detailIdColumn = null;
         if (!columnMappings.TryGetValue("DetailID", out detailIdColumn) || string.IsNullOrEmpty(Converter.ToString(row[detailIdColumn.SourceColumn.Name])))
         {
             LastDetailId = LastDetailId + 1;
@@ -1728,7 +1713,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void WritePrices(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        ColumnMapping priceIdColumn = null;
+        ColumnMapping? priceIdColumn = null;
         if (!columnMappings.TryGetValue("PriceID", out priceIdColumn) || string.IsNullOrEmpty(GetMergedValue(priceIdColumn, row)))
         {
             LastPriceId = LastPriceId + 1;
@@ -1757,11 +1742,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
                 if (int.TryParse(userIdLookupValue, out _))
                 {
-                    userIDs = ExistingUsers.Select("AccessUserID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+                    userIDs = ExistingUsers.Select("AccessUserID='" + userIdLookupValue + "'").Select(r => Converter.ToString(r["AccessUserID"])).ToList();
                 }
                 if (userIDs.Count == 0)
                 {
-                    userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+                    userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => Converter.ToString(r["AccessUserID"])).ToList();
                 }
 
                 if (userIDs.Count > 0)
@@ -1785,7 +1770,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             var userGroupIdLookupValue = GetMergedValue(priceAccessUserGroupColumn, row);
             if (!string.IsNullOrWhiteSpace(userGroupIdLookupValue))
             {
-                var userIDs = ExistingUserGroups.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+                var userIDs = ExistingUserGroups.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => Converter.ToString(r["AccessUserID"])).ToList();
                 if (userIDs.Count > 0)
                 {
                     dataRow["PriceUserGroupId"] = userIDs[0];
@@ -1814,7 +1799,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
                 if (int.TryParse(userIdLookupValue, out _))
                 {
-                    userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+                    userIDs = ExistingUsers.Select("AccessUserExternalID='" + userIdLookupValue + "'").Select(r => Converter.ToString(r["AccessUserID"])).ToList();
                 }
                 if (userIDs.Count > 0)
                 {
@@ -1837,7 +1822,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             var userGroupIdLookupValue = GetMergedValue(discountAccessUserGroupColumn, row);
             if (!string.IsNullOrWhiteSpace(userGroupIdLookupValue))
             {
-                var userIDs = ExistingUserGroups.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => r["AccessUserID"].ToString()).ToList();
+                var userIDs = ExistingUserGroups.Select("AccessUserExternalID='" + userGroupIdLookupValue + "'").Select(r => Converter.ToString(r["AccessUserID"])).ToList();
                 if (userIDs.Count > 0)
                 {
                     dataRow["DiscountAccessUserGroupId"] = userIDs[0];
@@ -1871,15 +1856,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private void WriteRelatedProducts(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
         string relatedGroupLanguage = _defaultLanguageId;
-        ColumnMapping productRelatedLanguageIdColumn = null;
+        ColumnMapping? productRelatedLanguageIdColumn = null;
         if (columnMappings.TryGetValue("ProductRelatedLanguageID", out productRelatedLanguageIdColumn) && !string.IsNullOrEmpty(Converter.ToString(row[productRelatedLanguageIdColumn.SourceColumn.Name])))
         {
             relatedGroupLanguage = GetLanguageID(Converter.ToString(row[productRelatedLanguageIdColumn.SourceColumn.Name]));
         }
 
-        string relatedGroupID = null;
+        string? relatedGroupID = null;
         bool relatedGroupIdIsConstant = false;
-        ColumnMapping productRelatedGroupIdMapping = null;
+        ColumnMapping? productRelatedGroupIdMapping = null;
         if (columnMappings.TryGetValue("ProductRelatedGroupID", out productRelatedGroupIdMapping))
         {
             if (productRelatedGroupIdMapping.ScriptType == ScriptType.Constant)
@@ -1904,7 +1889,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 var productsRelRow = FindRow("EcomProductsRelatedGroups", relatedGroupID.Replace("'", "''"));
                 if (productsRelRow == null)
                 {
-                    List<DataRow> productsRelRows = null;
+                    List<DataRow>? productsRelRows = null;
                     if (ProductsRelatedGroups.TryGetValue(relatedGroupID.Replace("'", "''"), out productsRelRows))
                     {
                         productsRelRow = productsRelRows[0];
@@ -1939,7 +1924,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         HandleParentGroups(row, columnMappings, groupID);
 
         string groupLanguageID = _defaultLanguageId;
-        ColumnMapping groupLanguageColumn = null;
+        ColumnMapping? groupLanguageColumn = null;
         if (columnMappings.TryGetValue("GroupLanguageID", out groupLanguageColumn) && groupLanguageColumn.ScriptType != ScriptType.Constant && !string.IsNullOrEmpty(Converter.ToString(row[groupLanguageColumn.SourceColumn.Name])))
         {
             groupLanguageID = GetLanguageID(row[groupLanguageColumn.SourceColumn.Name].ToString());
@@ -1953,9 +1938,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void HandleParentGroups(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string groupID)
     {
-        ColumnMapping parentGroupsColumn = null;
+        ColumnMapping? parentGroupsColumn = null;
         columnMappings.TryGetValue("ParentGroups", out parentGroupsColumn);
-        string parentGroups = GetValue(parentGroupsColumn, row);
+        string? parentGroups = GetValue(parentGroupsColumn, row);
         if (!string.IsNullOrEmpty(parentGroups))
         {
             var parentGroupIds = SplitOnComma(parentGroups);
@@ -1963,9 +1948,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             List<int> parentGroupSortingList = new List<int>();
             if (isParentGroupSortingInEcomGroupsMapping)
             {
-                ColumnMapping parentGroupSortingColumn = null;
+                ColumnMapping? parentGroupSortingColumn = null;
                 columnMappings.TryGetValue("ParentGroupsSorting", out parentGroupSortingColumn);
-                string sortingStr = GetValue(parentGroupSortingColumn, row);
+                string? sortingStr = GetValue(parentGroupSortingColumn, row);
                 if (!string.IsNullOrEmpty(sortingStr))
                 {
                     var sortings = SplitOnComma(sortingStr);
@@ -1986,7 +1971,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void HandleGroupShop(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, string groupID)
     {
-        ColumnMapping groupShopsColumn = null;
+        ColumnMapping? groupShopsColumn = null;
         if (!columnMappings.TryGetValue("Shops", out groupShopsColumn))
         {
             AddShopReferenceToGroup(groupID, DefaultShop, 0);
@@ -2001,13 +1986,13 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
             else
             {
-                ColumnMapping shopSortingColumn = null;
+                ColumnMapping? shopSortingColumn = null;
                 columnMappings.TryGetValue("ShopSorting", out shopSortingColumn);
-                string ShopSorting = GetValue(shopSortingColumn, row);
-                ShopSorting = string.IsNullOrEmpty(ShopSorting) ? "0" : ShopSorting;
+                string? shopSorting = GetValue(shopSortingColumn, row);
+                shopSorting = string.IsNullOrEmpty(shopSorting) ? "0" : shopSorting;
 
-                var sortings = SplitOnComma(ShopSorting);
-                string shopIdsStr;
+                var sortings = SplitOnComma(shopSorting);
+                string? shopIdsStr;
                 if (useShopValueFromConstant)
                 {
                     shopIdsStr = groupShopsColumn.ScriptValue;
@@ -2017,7 +2002,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     shopIdsStr = row[groupShopsColumn.SourceColumn.Name].ToString();
                 }
                 var shopIds = SplitOnComma(shopIdsStr);
-                string shopSorting = null;
+                shopSorting = null;
                 for (int i = 0; i < shopIds.Length; i++)
                 {
                     if (sortings.Length > i)
@@ -2027,7 +2012,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
                     string shop = shopIds[i];
 
-                    AddShopReferenceToGroupByShopName(groupID, shop, int.Parse(shopSorting));
+                    AddShopReferenceToGroupByShopName(groupID, shop, Converter.ToInt32(shopSorting));
                 }
             }
         }
@@ -2035,8 +2020,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private string HandleGroupId(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        string groupID;
-        ColumnMapping groupIdColumn = null;
+        string? groupID;
+        ColumnMapping? groupIdColumn = null;
         if (!columnMappings.TryGetValue("GroupID", out groupIdColumn))
         {
             LastGroupId = LastGroupId + 1;
@@ -2067,12 +2052,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
                 var productID = row[stockUnitProductIDColumn.SourceColumn.Name].ToString();
                 var variantID = row[stockUnitVariantIDColumn.SourceColumn.Name].ToString();
-                if (productID.Equals(variantID, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(productID, variantID, StringComparison.OrdinalIgnoreCase))
                 {
                     variantID = string.Empty;
                 }
 
-                var productBaseUnitOfMeasure = GetProductDefaultUnitId(productID, variantID);
+                var productBaseUnitOfMeasure = GetProductDefaultUnitId(productID ?? "", variantID ?? "");
                 if (!string.IsNullOrEmpty(productBaseUnitOfMeasure))
                 {
                     dataRow["StockUnitId"] = productBaseUnitOfMeasure;
@@ -2096,9 +2081,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         if (!columnMappings.TryGetValue("StockLocationGroupId", out _))
         {
-            ColumnMapping stockLocationIdentityColumn;
-            StockLocation existingStockLocation = null;
-            if (columnMappings.TryGetValue("StockLocationId", out stockLocationIdentityColumn))
+            StockLocation? existingStockLocation = null;
+            if (columnMappings.TryGetValue("StockLocationId", out ColumnMapping? stockLocationIdentityColumn))
             {
                 existingStockLocation = GetExistingStockLocation(row, stockLocationIdentityColumn);
             }
@@ -2118,19 +2102,19 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private string GetProductDefaultUnitId(string productID, string variantID)
+    private string? GetProductDefaultUnitId(string productID, string variantID)
     {
         var product = Ecommerce.Services.Products.GetProductById(productID, variantID, true);
         if (product == null)
         {
             logger.Warn($"Could not find product with productid: {productID} and variantid:{variantID} on the default language");
         }
-        return product.DefaultUnitId;
+        return product?.DefaultUnitId;
     }
 
     private long GetStockLocationIdByName(Dictionary<string, object> row, ColumnMapping stockLocationIdColumn)
     {
-        StockLocation existingStockLocation = GetExistingStockLocation(row, stockLocationIdColumn);
+        StockLocation? existingStockLocation = GetExistingStockLocation(row, stockLocationIdColumn);
         if (existingStockLocation != null)
         {
             return existingStockLocation.ID;
@@ -2140,12 +2124,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void WriteManufacturers(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        ColumnMapping manufacturerNameColumn = null;
+        ColumnMapping? manufacturerNameColumn = null;
         columnMappings.TryGetValue("ManufacturerName", out manufacturerNameColumn);
-        ColumnMapping manufacturerColumn = null;
+        ColumnMapping? manufacturerColumn = null;
         if (!columnMappings.TryGetValue("ManufacturerID", out manufacturerColumn))
         {
-            DataRow existingManufacturer = GetExistingManufacturer(row, manufacturerNameColumn);
+            DataRow? existingManufacturer = GetExistingManufacturer(row, manufacturerNameColumn);
             if (existingManufacturer != null)
             {
                 dataRow["ManufacturerID"] = existingManufacturer["ManufacturerID"];
@@ -2158,7 +2142,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else if (string.IsNullOrEmpty(Converter.ToString(row[manufacturerColumn.SourceColumn.Name])))
         {
-            DataRow existingManufacturer = GetExistingManufacturer(row, manufacturerNameColumn);
+            DataRow? existingManufacturer = GetExistingManufacturer(row, manufacturerNameColumn);
             if (existingManufacturer != null)
             {
                 row["ManufacturerID"] = existingManufacturer["ManufacturerID"];
@@ -2177,16 +2161,17 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         HandleVariantOptionLangaugeId(row, columnMappings, dataRow);
 
-        ColumnMapping column = null;
+        ColumnMapping? column = null;
         columnMappings.TryGetValue("VariantOptionGroupID", out column);
         string variantOptionGroupID = Converter.ToString(GetMergedValue(column, row));
         string variantOptionGroupIDEscaped = variantOptionGroupID.Replace("'", "''");
 
-        DataRow variantGroupRow = null;
+        DataRow? variantGroupRow = null;
         if (VariantGroups.TryGetValue(variantOptionGroupIDEscaped, out variantGroupRow))
         {
             dataRow["VariantOptionGroupID"] = variantGroupRow["VariantGroupID"];
-            row[column.SourceColumn.Name] = variantGroupRow["VariantGroupID"];
+            if(column?.SourceColumn is not null)
+                row[column.SourceColumn.Name] = variantGroupRow["VariantGroupID"];
         }
         else
         {
@@ -2195,7 +2180,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (variantGroupRow != null)
             {
                 dataRow["VariantOptionGroupID"] = variantGroupRow["VariantGroupID"];
-                row[column.SourceColumn.Name] = variantGroupRow["VariantGroupID"];
+                if (column?.SourceColumn is not null)
+                    row[column.SourceColumn.Name] = variantGroupRow["VariantGroupID"];
             }
             else
             {
@@ -2204,19 +2190,20 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private void AddNewVariantOptionGroup(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, ColumnMapping column)
+    private void AddNewVariantOptionGroup(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, ColumnMapping? column)
     {
         var newGroup = GetDataTableNewRow("EcomVariantGroups");
         LastVariantGroupId = LastVariantGroupId + 1;
         //set groupID on option
-        newGroup["VariantGroupName"] = row[column.SourceColumn.Name];
+        if (column?.SourceColumn is not null)
+            newGroup["VariantGroupName"] = row[column.SourceColumn.Name];
         newGroup["VariantGroupLanguageID"] = _defaultLanguageId;
         if (newGroup.Table.Columns.Contains("VariantGroupFamily"))
         {
             newGroup["VariantGroupFamily"] = false;
         }
-        string variantGroupId;
-        if (columnMappings.TryGetValue("VariantOptionId", out ColumnMapping variantOptionIdColumn))
+        string? variantGroupId;
+        if (columnMappings.TryGetValue("VariantOptionId", out ColumnMapping? variantOptionIdColumn))
         {
             variantGroupId = GetMergedValue(variantOptionIdColumn, row);
         }
@@ -2225,20 +2212,21 @@ internal class EcomDestinationWriter : BaseSqlWriter
             variantGroupId = "ImportedVARGRP" + LastVariantGroupId;
         }
         newGroup["VariantGroupID"] = variantGroupId;
-        DataRowsToWrite[newGroup.Table.TableName].Add(variantGroupId, new List<DataRow>() { newGroup });
-        row["VariantOptionGroupID"] = variantGroupId;
-        row[column.SourceColumn.Name] = newGroup["VariantGroupID"];
+        DataRowsToWrite[newGroup.Table.TableName].TryAdd(variantGroupId ?? "", new List<DataRow>() { newGroup });
+        row["VariantOptionGroupID"] = variantGroupId ?? "";
+        if (column?.SourceColumn is not null)
+            row[column.SourceColumn.Name] = newGroup["VariantGroupID"];
     }
 
     private void HandleVariantOptionLangaugeId(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        if (!columnMappings.TryGetValue("VariantOptionLanguageID", out ColumnMapping column))
+        if (!columnMappings.TryGetValue("VariantOptionLanguageID", out ColumnMapping? column))
         {
             dataRow["VariantOptionLanguageID"] = _defaultLanguageId;
         }
         else
         {
-            string language = GetValue(column, row);
+            string? language = GetValue(column, row);
             if (string.IsNullOrEmpty(language))
             {
                 row["VariantOptionLanguageID"] = _defaultLanguageId;
@@ -2252,7 +2240,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void HandleVariantOptionId(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        ColumnMapping column = null;
+        ColumnMapping? column = null;
         if (!columnMappings.TryGetValue("VariantOptionID", out column))
         {
             LastVariantOptionId = LastVariantOptionId + 1;
@@ -2267,7 +2255,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void WriteVariantGroups(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        ColumnMapping variantGroupColumn = null;
+        ColumnMapping? variantGroupColumn = null;
         if (!columnMappings.TryGetValue("VariantGroupID", out variantGroupColumn))
         {
             LastVariantGroupId = LastVariantGroupId + 1;
@@ -2284,10 +2272,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
 
         string variantGroupLanguageID = _defaultLanguageId;
-        ColumnMapping variantGroupLanguageColumn = null;
+        ColumnMapping? variantGroupLanguageColumn = null;
         if (columnMappings.TryGetValue("VariantGroupLanguageID", out variantGroupLanguageColumn))
         {
-            string id = GetValue(variantGroupLanguageColumn, row);
+            string? id = GetValue(variantGroupLanguageColumn, row);
             if (!string.IsNullOrEmpty(id))
             {
                 variantGroupLanguageID = GetLanguageID(id);
@@ -2302,10 +2290,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void WriteCategoyFieldValues(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
-        DataRow product = null;
+        DataRow? product = null;
         //Fill FieldValueFieldCategoryId by finding exisintg CategoryField by FieldID/SystemName
-        ColumnMapping fieldIdColumn = null;
-        ColumnMapping fieldCategoryIdColumn = null;
+        ColumnMapping? fieldIdColumn = null;
+        ColumnMapping? fieldCategoryIdColumn = null;
         if (columnMappings.TryGetValue("FieldValueFieldId", out fieldIdColumn) &&
             (!columnMappings.TryGetValue("FieldValueFieldCategoryId", out fieldCategoryIdColumn) || string.IsNullOrEmpty(row[fieldCategoryIdColumn.SourceColumn.Name].ToString())))
         {
@@ -2321,10 +2309,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
 
-        ColumnMapping fieldProductIdColumn = null;
-        ColumnMapping fieldProductNumberColumn = null;
-        ColumnMapping fieldProductLanguageIdColumn = null;
-        ColumnMapping fieldProductVariantIdColumn = null;
+        ColumnMapping? fieldProductIdColumn = null;
+        ColumnMapping? fieldProductNumberColumn = null;
+        ColumnMapping? fieldProductLanguageIdColumn = null;
+        ColumnMapping? fieldProductVariantIdColumn = null;
 
         columnMappings.TryGetValue("FieldValueProductLanguageId", out fieldProductLanguageIdColumn);
         columnMappings.TryGetValue("FieldValueProductVariantId", out fieldProductVariantIdColumn);
@@ -2365,7 +2353,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     dataRow.ToString());
             }
         }
-        string fieldLanguageID = (product != null) ? product["ProductLanguageId"].ToString() : _defaultLanguageId;
+        string fieldLanguageID = (product != null) ? product["ProductLanguageId"].ToString() ?? _defaultLanguageId : _defaultLanguageId;
         if (fieldProductLanguageIdColumn != null && fieldProductLanguageIdColumn.Active && fieldProductLanguageIdColumn.ScriptType != ScriptType.Constant &&
             !string.IsNullOrEmpty(Converter.ToString(row[fieldProductLanguageIdColumn.SourceColumn.Name])))
         {
@@ -2388,19 +2376,19 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private DataRow GetExistingProductForFieldValue(Dictionary<string, object> row, string productNumber, ColumnMapping fieldProductVariantIdColumn, ColumnMapping fieldProductLanguageIdColumn)
+    private DataRow? GetExistingProductForFieldValue(Dictionary<string, object> row, string productNumber, ColumnMapping? fieldProductVariantIdColumn, ColumnMapping? fieldProductLanguageIdColumn)
     {
         string selectExpression = "ProductNumber='" + productNumber + "'";
 
-        if (fieldProductVariantIdColumn != null)
+        if (fieldProductVariantIdColumn?.SourceColumn != null)
         {
-            string productVariantId = row[fieldProductVariantIdColumn.SourceColumn.Name].ToString();
+            string productVariantId = row[fieldProductVariantIdColumn.SourceColumn.Name].ToString() ?? "";
             selectExpression = selectExpression + " and ProductVariantId='" + productVariantId + "'";
         }
 
-        if (fieldProductLanguageIdColumn != null)
+        if (fieldProductLanguageIdColumn?.SourceColumn != null)
         {
-            string productLanguageId = row[fieldProductLanguageIdColumn.SourceColumn.Name].ToString();
+            string productLanguageId = row[fieldProductLanguageIdColumn.SourceColumn.Name].ToString() ?? "";
             selectExpression = selectExpression + " and ProductLanguageId='" + productLanguageId + "'";
         }
 
@@ -2424,19 +2412,22 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 GroupRelationSorting.TryGetValue($"{groupId}{_sortingKeySeparator}{parentGroupId}", out groupRelationsSorting);
             }
-            var newRow = DataToWrite.Tables["EcomGroupRelations"].NewRow();
-            newRow["GroupRelationsGroupId"] = groupId;
-            newRow["GroupRelationsParentId"] = parentGroupId;
-            newRow["GroupRelationsSorting"] = groupRelationsSorting;
-            DataRowsToWrite["EcomGroupRelations"].Add($"{groupId}{relationSeparator}{parentGroupId}", new List<DataRow>() { newRow });
+            var newRow = DataToWrite?.Tables?["EcomGroupRelations"]?.NewRow();
+            if (newRow is not null)
+            {
+                newRow["GroupRelationsGroupId"] = groupId;
+                newRow["GroupRelationsParentId"] = parentGroupId;
+                newRow["GroupRelationsSorting"] = groupRelationsSorting;
+                DataRowsToWrite["EcomGroupRelations"].Add($"{groupId}{relationSeparator}{parentGroupId}", new List<DataRow>() { newRow });
+            }
         }
     }
 
-    private string GetLanguageID(string languageId)
+    private string GetLanguageID(string? languageId)
     {
         string result = _defaultLanguageId;
-        languageId = languageId.Replace("'", "''");
-        DataRow languageRow = null;
+        languageId = languageId is null ? "" : languageId.Replace("'", "''");
+        DataRow? languageRow = null;
         if (!EcomLanguages.TryGetValue(languageId, out languageRow))
         {
             foreach (var row in EcomLanguages.Values)
@@ -2479,31 +2470,35 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 else
                 {
-                    result = row["LanguageID"].ToString();
+                    result = row["LanguageID"].ToString() ?? _defaultLanguageId;
                 }
             }
         }
         else
         {
-            result = languageRow["LanguageID"].ToString();
+            result = languageRow["LanguageID"].ToString() ?? _defaultLanguageId;
         }
         return result;
     }
 
-    private string CreateProductRelatedGroup(string relatedGroupID, string relatedGroupLanguage)
+    private string? CreateProductRelatedGroup(string relatedGroupID, string relatedGroupLanguage)
     {
-        DataRow newProductRelatedGroup = DataToWrite.Tables["EcomProductsRelatedGroups"].NewRow();
+        DataRow? newProductRelatedGroup = DataToWrite?.Tables?["EcomProductsRelatedGroups"]?.NewRow();
+        if (newProductRelatedGroup is null)
+            return null;
+
         LastRelatedGroupID = LastRelatedGroupID + 1;
-        newProductRelatedGroup["RelatedGroupID"] = "ImportedRELGRP" + LastRelatedGroupID;
+        string result = "ImportedRELGRP" + LastRelatedGroupID;
+        newProductRelatedGroup["RelatedGroupID"] = result;
         newProductRelatedGroup["RelatedGroupName"] = relatedGroupID;
         newProductRelatedGroup["RelatedGroupLanguageID"] = relatedGroupLanguage;
 
         DataRowsToWrite["EcomProductsRelatedGroups"].Add("ImportedRELGRP" + LastRelatedGroupID, new List<DataRow>() { newProductRelatedGroup });
 
-        return newProductRelatedGroup["RelatedGroupID"].ToString();
+        return result;
     }
 
-    private string GetDefaultGroupID(string relatedGroupLanguage)
+    private string? GetDefaultGroupID(string relatedGroupLanguage)
     {
         relatedGroupLanguage = relatedGroupLanguage.Replace("'", "''");
         var relationFound = false;
@@ -2537,7 +2532,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
 
-        DataRow newProductRelatedGroup = DataToWrite.Tables["EcomProductsRelatedGroups"].NewRow();
+        DataRow? newProductRelatedGroup = DataToWrite?.Tables?["EcomProductsRelatedGroups"]?.NewRow();
+        if (newProductRelatedGroup is null)
+            return null;
+
         LastRelatedGroupID = LastRelatedGroupID + 1;
         newProductRelatedGroup["RelatedGroupID"] = "ImportedRELGRP" + LastRelatedGroupID;
         newProductRelatedGroup["RelatedGroupName"] = "Imported Relations Group";
@@ -2551,17 +2549,17 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private void AddVariantGroupReferenceToProductByVariantGroupName(string productID, string variantGroupsString, DataTable dataTable)
     {
         variantGroupsString = variantGroupsString.Replace("'", "''");
-        DataRow variantGroupRow = null;
+        DataRow? variantGroupRow = null;
         if (VariantGroups.TryGetValue(variantGroupsString, out variantGroupRow))
         {
-            AddVariantGroupReferenceToProduct(productID, variantGroupRow["VariantGroupID"].ToString());
+            AddVariantGroupReferenceToProduct(productID, variantGroupRow["VariantGroupID"].ToString() ?? "");
         }
         else
         {
             variantGroupRow = FindRow("EcomVariantGroups", variantGroupsString, dataTable.Columns.Contains("VariantGroupName") ? new Func<DataRow, bool>(r => r["VariantGroupName"].ToString() == variantGroupsString) : null);
             if (variantGroupRow != null)
             {
-                AddVariantGroupReferenceToProduct(productID, variantGroupRow["VariantGroupID"].ToString());
+                AddVariantGroupReferenceToProduct(productID, variantGroupRow["VariantGroupID"].ToString() ?? "");
             }
             else
             {
@@ -2573,7 +2571,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private void AddShopReferenceToGroupByShopName(string groupID, string shopName, int shopSorting)
     {
         shopName = shopName.Replace("'", "''");
-        DataRow shopRow = null;
+        DataRow? shopRow = null;
         foreach (var row in EcomShops.Values)
         {
             var name = Converter.ToString(row["shopName"]);
@@ -2585,23 +2583,26 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         if (shopRow != null)
         {
-            AddShopReferenceToGroup(groupID, shopRow["ShopID"].ToString(), shopSorting);
+            AddShopReferenceToGroup(groupID, shopRow["ShopID"].ToString() ?? "", shopSorting);
         }
         else
         {
             shopRow = FindRow("EcomShops", shopName);
             if (shopRow != null)
             {
-                AddShopReferenceToGroup(groupID, shopRow["ShopID"].ToString(), shopSorting);
+                AddShopReferenceToGroup(groupID, shopRow["ShopID"].ToString() ?? "", shopSorting);
             }
             else
             {
-                var newShop = DataToWrite.Tables["EcomShops"].NewRow();
-                newShop["ShopID"] = "ImportedSHOP" + LastShopId;
-                newShop["ShopName"] = shopName;
-                LastShopId = LastShopId + 1;
-                DataRowsToWrite["EcomProductsRelatedGroups"].Add("ImportedSHOP" + LastShopId, new List<DataRow>() { newShop });
-                AddShopReferenceToGroup(groupID, newShop["ShopID"].ToString(), shopSorting);
+                var newShop = DataToWrite?.Tables?["EcomShops"]?.NewRow();
+                if (newShop is not null)
+                {
+                    newShop["ShopID"] = "ImportedSHOP" + LastShopId;
+                    newShop["ShopName"] = shopName;
+                    LastShopId = LastShopId + 1;
+                    DataRowsToWrite["EcomProductsRelatedGroups"].Add("ImportedSHOP" + LastShopId, new List<DataRow>() { newShop });
+                    AddShopReferenceToGroup(groupID, newShop["ShopID"].ToString() ?? "", shopSorting);
+                }
             }
         }
     }
@@ -2620,15 +2621,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
             // Add product to all of the found existing groups
             foreach (DataRow row in groupRows)
             {
-                AddGroupReferenceRowToProduct(productID, row["GroupID"].ToString(), sorting, isPrimary);
+                AddGroupReferenceRowToProduct(productID, row["GroupID"].ToString() ?? "", sorting, isPrimary);
             }
         }
         else
         {
-            DataRow groupRow = FindRow("EcomGroups", group, dataTable.Columns.Contains("GroupName") ? new Func<DataRow, bool>(g => g["GroupName"].ToString() == group) : null);
+            DataRow? groupRow = FindRow("EcomGroups", group, dataTable.Columns.Contains("GroupName") ? new Func<DataRow, bool>(g => g["GroupName"].ToString() == group) : null);
             if (groupRow != null)
             {
-                AddGroupReferenceRowToProduct(productID, groupRow["GroupID"].ToString(), sorting, isPrimary);
+                AddGroupReferenceRowToProduct(productID, groupRow["GroupID"].ToString() ?? "", sorting, isPrimary);
             }
             else
             {
@@ -2649,7 +2650,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     newGroup["GroupName"] = group;
                     DataRowsToWrite[newGroup.Table.TableName].Add("ImportedGROUP" + LastGroupId, new List<DataRow>() { newGroup });
                     AddShopReferenceToGroup("ImportedGROUP" + LastGroupId, DefaultShop, 0);
-                    AddGroupReferenceRowToProduct(productID, newGroup["GroupID"].ToString(), sorting, isPrimary);
+                    AddGroupReferenceRowToProduct(productID, newGroup["GroupID"].ToString() ?? "", sorting, isPrimary);
                 }
                 else
                 {
@@ -2662,7 +2663,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private List<DataRow> FindExistingRows(Dictionary<string, List<DataRow>> collection, string id, Func<DataRow, bool> filter)
     {
-        List<DataRow> rows = null;
+        List<DataRow>? rows = null;
         if (!collection.TryGetValue(id, out rows))
         {
             return collection.Values.SelectMany(g => g).Where(filter).ToList();
@@ -2670,9 +2671,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return rows;
     }
 
-    private DataRow FindRow(string tableName, Func<DataRow, bool> filter)
+    private DataRow? FindRow(string tableName, Func<DataRow, bool> filter)
     {
-        Dictionary<string, List<DataRow>> collection = null;
+        Dictionary<string, List<DataRow>>? collection = null;
         if (DataRowsToWrite.TryGetValue(tableName, out collection))
         {
             if (collection != null)
@@ -2689,7 +2690,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     collection = DataRowsToWrite[key];
                     if (collection != null)
                     {
-                        DataRow row = collection.Values.SelectMany(v => v).FirstOrDefault(filter);
+                        DataRow? row = collection.Values.SelectMany(v => v).FirstOrDefault(filter);
                         if (row != null)
                         {
                             return row;
@@ -2701,9 +2702,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return null;
     }
 
-    private DataRow FindRow(string tableName, string idToLook, Func<DataRow, bool> fallbackFilter = null)
+    private DataRow? FindRow(string tableName, string idToLook, Func<DataRow, bool>? fallbackFilter = null)
     {
-        DataRow row = FindRow(tableName, idToLook);
+        DataRow? row = FindRow(tableName, idToLook);
         if (row == null && fallbackFilter != null)
         {
             row = FindRow(tableName, fallbackFilter);
@@ -2711,7 +2712,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return row;
     }
 
-    private void AddCategoryFieldValueToProduct(string productID, string productVariantId, string languageID, string categoryId, string fieldId, string value)
+    private void AddCategoryFieldValueToProduct(string productID, string productVariantId, string languageID, string categoryId, string fieldId, string? value)
     {
         if (ProductCategoryFields.ContainsKey($"{categoryId}|{fieldId}"))
         {
@@ -2736,16 +2737,19 @@ internal class EcomDestinationWriter : BaseSqlWriter
         string key = string.Format("{0}.{1}", variantGroupID.ToLower(), productID.ToLower());
         if (!ecomVariantgroupProductrelationKeys.ContainsKey(key))
         {
-            var variantGroupProductRelation = DataToWrite.Tables["EcomVariantgroupProductrelation"].NewRow();
-            variantGroupProductRelation["VariantGroupProductRelationVariantGroupID"] = variantGroupID;
-            variantGroupProductRelation["VariantGroupProductRelationProductID"] = productID;
-            _variantGroupProductRelationSortingCounter++;
-            variantGroupProductRelation["VariantGroupProductRelationSorting"] = _variantGroupProductRelationSortingCounter;
-            LastVariantGroupProductRelationID = LastVariantGroupProductRelationID + 1;
-            variantGroupProductRelation["VariantgroupProductRelationID"] = "ImportedVARGRPPRODREL" + LastVariantGroupProductRelationID;
+            var variantGroupProductRelation = DataToWrite?.Tables?["EcomVariantgroupProductrelation"]?.NewRow();
+            if (variantGroupProductRelation is not null)
+            {
+                variantGroupProductRelation["VariantGroupProductRelationVariantGroupID"] = variantGroupID;
+                variantGroupProductRelation["VariantGroupProductRelationProductID"] = productID;
+                _variantGroupProductRelationSortingCounter++;
+                variantGroupProductRelation["VariantGroupProductRelationSorting"] = _variantGroupProductRelationSortingCounter;
+                LastVariantGroupProductRelationID = LastVariantGroupProductRelationID + 1;
+                variantGroupProductRelation["VariantgroupProductRelationID"] = "ImportedVARGRPPRODREL" + LastVariantGroupProductRelationID;
 
-            DataRowsToWrite["EcomVariantgroupProductrelation"].Add(RowAutoId++.ToString(), new List<DataRow>() { variantGroupProductRelation });
-            ecomVariantgroupProductrelationKeys.Add(key, null);
+                DataRowsToWrite["EcomVariantgroupProductrelation"].Add(RowAutoId++.ToString(), new List<DataRow>() { variantGroupProductRelation });
+                ecomVariantgroupProductrelationKeys.Add(key, null);
+            }
         }
     }
 
@@ -2769,7 +2773,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         variantOptionProductRelation["VariantOptionsProductRelationProductID"] = productID;
         variantOptionProductRelation["VariantOptionsProductRelationVariantID"] = variantOptionID;
 
-        Dictionary<string, List<DataRow>> variantOptionRelations;
+        Dictionary<string, List<DataRow>>? variantOptionRelations;
         if (!DataRowsToWrite.TryGetValue(variantOptionProductRelation.Table.TableName, out variantOptionRelations))
         {
             variantOptionRelations = new Dictionary<string, List<DataRow>>();
@@ -2805,12 +2809,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 ShopGroupRelationSorting.TryGetValue($"{shopID}{_sortingKeySeparator}{groupID}", out shopSorting);
             }
-            var shopGroupRelation = DataToWrite.Tables["EcomShopGroupRelation"].NewRow();
-            shopGroupRelation["ShopGroupShopID"] = shopID;
-            shopGroupRelation["ShopGroupGroupID"] = groupID;
-            shopGroupRelation["ShopGroupRelationsSorting"] = shopSorting;
+            var shopGroupRelation = DataToWrite?.Tables?["EcomShopGroupRelation"]?.NewRow();
+            if (shopGroupRelation is not null)
+            {
+                shopGroupRelation["ShopGroupShopID"] = shopID;
+                shopGroupRelation["ShopGroupGroupID"] = groupID;
+                shopGroupRelation["ShopGroupRelationsSorting"] = shopSorting;
 
-            DataRowsToWrite["EcomShopGroupRelation"].Add(RowAutoId++.ToString(), new List<DataRow>() { shopGroupRelation });
+                DataRowsToWrite["EcomShopGroupRelation"].Add(RowAutoId++.ToString(), new List<DataRow>() { shopGroupRelation });
+            }
         }
     }
 
@@ -2820,7 +2827,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         if (!ecomGroupProductRelationKeys.ContainsKey(key))
         {
             bool process = true;
-            Tuple<bool, int> existingRelationIsPrimaryAndSorting;
+            Tuple<bool, int>? existingRelationIsPrimaryAndSorting;
             if (ExistingGroupProductRelations.TryGetValue($"{groupID}{_sortingKeySeparator}{productID}", out existingRelationIsPrimaryAndSorting) &&
                 existingRelationIsPrimaryAndSorting.Item1 == isPrimary &&
                 (!sorting.HasValue || sorting.Value == existingRelationIsPrimaryAndSorting.Item2))
@@ -2833,41 +2840,47 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
             if (process)
             {
-                var groupProductRelation = DataToWrite.Tables["EcomGroupProductRelation"].NewRow();
-                groupProductRelation["GroupProductRelationGroupID"] = groupID;
-                groupProductRelation["GroupProductRelationProductID"] = productID;
-                groupProductRelation["GroupProductRelationSorting"] = sorting.Value;
-                groupProductRelation["GroupProductRelationIsPrimary"] = isPrimary;
+                var groupProductRelation = DataToWrite?.Tables?["EcomGroupProductRelation"]?.NewRow();
+                if (groupProductRelation is not null)
+                {
+                    groupProductRelation["GroupProductRelationGroupID"] = groupID;
+                    groupProductRelation["GroupProductRelationProductID"] = productID;
+                    groupProductRelation["GroupProductRelationSorting"] = sorting.Value;
+                    groupProductRelation["GroupProductRelationIsPrimary"] = isPrimary;
 
-                DataRowsToWrite["EcomGroupProductRelation"].Add(RowAutoId++.ToString(), new List<DataRow>() { groupProductRelation });
-                ecomGroupProductRelationKeys.Add(key, null);
+                    DataRowsToWrite["EcomGroupProductRelation"].Add(RowAutoId++.ToString(), new List<DataRow>() { groupProductRelation });
+                    ecomGroupProductRelationKeys.Add(key, null);
+                }
             }
 
             if (isPrimary)
             {
-                DataRow existingPrimaryRow = null;
+                DataRow? existingPrimaryRow = null;
                 if (PrimaryGroupProductRelations.TryGetValue(productID.Replace("'", "''"), out existingPrimaryRow))
                 {
-                    string existingPrimaryGroupID = existingPrimaryRow["GroupProductRelationGroupID"].ToString();
+                    string existingPrimaryGroupID = existingPrimaryRow["GroupProductRelationGroupID"].ToString() ?? "";
                     key = string.Format("{0}.{1}", existingPrimaryGroupID.ToLower(), productID.ToLower());
                     if (existingPrimaryGroupID.ToLower() != groupID.ToLower() && !ecomGroupProductRelationKeys.ContainsKey(key))
                     {
                         //Update GroupProductRelationIsPrimary to false for the previous existing primary record
-                        var groupProductRelation = DataToWrite.Tables["EcomGroupProductRelation"].NewRow();
-                        groupProductRelation["GroupProductRelationGroupID"] = existingPrimaryRow["GroupProductRelationGroupID"];
-                        groupProductRelation["GroupProductRelationProductID"] = existingPrimaryRow["GroupProductRelationProductID"];
-                        groupProductRelation["GroupProductRelationSorting"] = existingPrimaryRow["GroupProductRelationSorting"];
-                        groupProductRelation["GroupProductRelationIsPrimary"] = false;
+                        var groupProductRelation = DataToWrite?.Tables?["EcomGroupProductRelation"]?.NewRow();
+                        if (groupProductRelation is not null)
+                        {
+                            groupProductRelation["GroupProductRelationGroupID"] = existingPrimaryRow["GroupProductRelationGroupID"];
+                            groupProductRelation["GroupProductRelationProductID"] = existingPrimaryRow["GroupProductRelationProductID"];
+                            groupProductRelation["GroupProductRelationSorting"] = existingPrimaryRow["GroupProductRelationSorting"];
+                            groupProductRelation["GroupProductRelationIsPrimary"] = false;
 
-                        DataRowsToWrite["EcomGroupProductRelation"].Add(RowAutoId++.ToString(), new List<DataRow>() { groupProductRelation });
-                        ecomGroupProductRelationKeys.Add(key, null);
+                            DataRowsToWrite["EcomGroupProductRelation"].Add(RowAutoId++.ToString(), new List<DataRow>() { groupProductRelation });
+                            ecomGroupProductRelationKeys.Add(key, null);
+                        }
                     }
                 }
             }
         }
     }
 
-    protected internal string _defaultShop;
+    protected internal string? _defaultShop;
     private bool _removeFromEcomGroups;
     private bool _removeFromEcomVariantGroups;
     private readonly bool deleteExcess;
@@ -2881,7 +2894,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 sqlCommand.CommandText = "select top(1) ShopID from EcomShops order by ShopDefault DESC, shopID";
                 var result = sqlCommand.ExecuteReader();
                 result.Read();
-                _defaultShop = result["ShopID"].ToString();
+                _defaultShop = result["ShopID"].ToString() ?? "";
                 result.Close();
             }
             return _defaultShop;
@@ -2905,7 +2918,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         foreach (DataTable table in DataToWrite.Tables)
         {
-            Dictionary<string, List<DataRow>> tableRows = null;
+            Dictionary<string, List<DataRow>>? tableRows = null;
             if (DataRowsToWrite.TryGetValue(table.TableName, out tableRows))
             {
                 table.Rows.Clear();
@@ -3035,16 +3048,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     public void MoveDataToMainTables(string shop, SqlTransaction sqlTransaction, bool updateOnly, bool insertOnly)
     {
-        bool isGroupsColumnInMapping = false;
-        List<Mapping> productsMappings = null;
-        Mapping productsMapping = null;
-        if (Mappings.TryGetValue("EcomProducts", out productsMappings))
+        bool isGroupsColumnInMapping = false;         
+        Mapping? productsMapping = null;
+        if (Mappings.TryGetValue("EcomProducts", out List<Mapping>? productsMappings))
         {
-            productsMapping = productsMappings[0];
+            productsMapping = productsMappings.FirstOrDefault();
         }
         if (productsMapping != null)
         {
-            isGroupsColumnInMapping = productsMappings[0].GetColumnMappings(true).Any(cm => cm != null && cm.DestinationColumn != null && cm.Active && string.Compare(cm.DestinationColumn.Name, "Groups", true) == 0);
+            isGroupsColumnInMapping = productsMapping.GetColumnMappings(true).Any(cm => cm != null && cm.DestinationColumn != null && cm.Active && string.Compare(cm.DestinationColumn.Name, "Groups", true) == 0);
         }
 
         //Add mappings that are missing but needs to be there - EcomGroups & EcomVariantGroups.
@@ -3075,7 +3087,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         RemoveExcessFromRelationsTables(sqlTransaction);
 
-        string groupProductRelationTempTablePrefix = null;
+        string? groupProductRelationTempTablePrefix = null;
         bool removeMissingAfterImport = deleteExcess;
         if (productsMapping != null)
         {
@@ -3289,7 +3301,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
 
-        List<Mapping> productsMappings = null;
+        List<Mapping>? productsMappings = null;
         if (HasData("EcomProducts") && Mappings.TryGetValue("EcomProducts", out productsMappings))
         {
             foreach (var ecomProductsMapping in productsMappings)
@@ -3305,7 +3317,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         if (HasData("EcomManufacturers"))
         {
-            List<Mapping> manufacturersMappings = null;
+            List<Mapping>? manufacturersMappings = null;
             if (Mappings.TryGetValue("EcomManufacturers", out manufacturersMappings))
             {
                 foreach (var mapping in manufacturersMappings)
@@ -3327,7 +3339,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
 
-        List<Mapping> productCateforyMappings = null;
+        List<Mapping>? productCateforyMappings = null;
         if (Mappings.TryGetValue("EcomProductCategoryFieldValue", out productCateforyMappings))
         {
             foreach (var mapping in productCateforyMappings)
@@ -3350,7 +3362,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             ColumnMappingsByMappingId.Add(ecomLanguagesMapping.GetId(), ecomLanguagesMapping.GetColumnMappings(true));
         }
 
-        List<Mapping> priceMappings = null;
+        List<Mapping>? priceMappings = null;
         if (HasData("EcomPrices") && Mappings.TryGetValue("EcomPrices", out priceMappings))
         {
             foreach (Mapping mapping in priceMappings)
@@ -3368,7 +3380,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
 
-        List<Mapping> discountMappings = null;
+        List<Mapping>? discountMappings = null;
         if (HasData("EcomDiscount") && Mappings.TryGetValue("EcomDiscount", out discountMappings))
         {
             foreach (Mapping mapping in discountMappings)
@@ -3378,7 +3390,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
 
-        List<Mapping> detailsMappings = null;
+        List<Mapping>? detailsMappings = null;
         if (HasData("EcomDetails") && Mappings.TryGetValue("EcomDetails", out detailsMappings))
         {
             foreach (Mapping mapping in detailsMappings)
@@ -3387,7 +3399,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
 
-        List<Mapping> assortmentsMappings = null;
+        List<Mapping>? assortmentsMappings = null;
         if (HasData("EcomAssortmentPermissions") && Mappings.TryGetValue("EcomAssortmentPermissions", out assortmentsMappings))
         {
             foreach (Mapping mapping in assortmentsMappings)
@@ -3396,7 +3408,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
 
-        List<Mapping> stockLocationMappings = null;
+        List<Mapping>? stockLocationMappings = null;
         if (Mappings.TryGetValue("EcomStockLocation", out stockLocationMappings))
         {
             foreach (var mapping in stockLocationMappings)
@@ -3407,7 +3419,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private static void EnsureMapping(Mapping mapping, Dictionary<string, Column> destinationColumns, Dictionary<string, Column> schemaColumns, string[] keyColumnNames)
+    private static void EnsureMapping(Mapping mapping, Dictionary<string, Column>? destinationColumns, Dictionary<string, Column> schemaColumns, string[] keyColumnNames)
     {
         foreach (var keyColumn in keyColumnNames)
         {
@@ -3443,7 +3455,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void RemoveColumnMappingsFromJobThatShouldBeSkippedInMoveToMainTables()
     {
-        List<Mapping> mappings = null;
+        List<Mapping>? mappings = null;
 
         if (Mappings.TryGetValue("EcomProducts", out mappings))
         {
@@ -3539,13 +3551,13 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
 
                 Dictionary<string, int> productVariantCounterDict = new Dictionary<string, int>();
-                Dictionary<string, List<DataRow>> tableRows = null;
+                Dictionary<string, List<DataRow>>? tableRows = null;
                 if (DataRowsToWrite.TryGetValue(productsDataTable.TableName, out tableRows))
                 {
                     foreach (DataRow row in tableRows.Values.SelectMany(c => c))
                     {
-                        string productId = row["ProductID"].ToString();
-                        string langId = row["ProductLanguageID"].ToString();
+                        string productId = row["ProductID"].ToString() ?? "";
+                        string langId = row["ProductLanguageID"].ToString() ?? "";
                         //Check if it is already existing product row and it has filled variants counter fileds - skip it
                         if (variantProdCounterColExist && (row["ProductVariantProdCounter"] == DBNull.Value || row["ProductVariantProdCounter"].ToString() == "0"))
                         {
@@ -3578,7 +3590,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         }
                     }
                 }
-                productVariantCounterDict = null;
+                productVariantCounterDict.Clear();
             }
         }
     }
@@ -3591,7 +3603,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 if (!DestinationColumnMappings["EcomProducts"].ContainsKey("ProductVariantID"))
                 {
-                    string keyColumn = "ProductNumber";
+                    string? keyColumn = "ProductNumber";
 
                     if (!DestinationColumnMappings["EcomProducts"].ContainsKey("ProductNumber"))
                     {
@@ -3600,10 +3612,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
                         var ecomProductsPKColumns = MappingIdEcomProductsPKColumns.Keys.Count > 0 ?
                             MappingIdEcomProductsPKColumns[MappingIdEcomProductsPKColumns.Keys.First()] : null;
-                        IEnumerable<string> columnsToSearchForProductsToUpdate = ecomProductsPKColumns.Where(c =>
+                        IEnumerable<string>? columnsToSearchForProductsToUpdate = ecomProductsPKColumns?.Where(c =>
                             !columnsToSkip.Any(cs => string.Equals(c, cs, StringComparison.OrdinalIgnoreCase)));
 
-                        keyColumn = columnsToSearchForProductsToUpdate.FirstOrDefault();
+                        keyColumn = columnsToSearchForProductsToUpdate?.FirstOrDefault();
                         if (string.IsNullOrEmpty(keyColumn))
                         {
                             keyColumn = "ProductNumber";
@@ -3620,13 +3632,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
         Hashtable existigProductVariantIdsCombination = GetExistingProductVariantsIDsCombinations(keyColumn);
         if (existigProductVariantIdsCombination.Keys.Count > 0)
         {
-            string langId;
+            string? langId;
             string key;
             List<DataRow> rowsToAdd = new List<DataRow>();
-            DataRow newRow;
+            DataRow? newRow;
             var tableName = GetTableName("EcomProducts", mapping);
 
-            if (DataToWrite.Tables[tableName].Columns.Contains(keyColumn) && DataToWrite.Tables[tableName].Columns.Contains("ProductVariantID"))
+            var columns = DataToWrite?.Tables?[tableName]?.Columns;
+            if (columns is not null && columns.Contains(keyColumn) && columns.Contains("ProductVariantID"))
             {
                 foreach (var rows in DataRowsToWrite[tableName].Values)
                 {
@@ -3641,22 +3654,31 @@ internal class EcomDestinationWriter : BaseSqlWriter
                             }
                             else
                             {
-                                key = row[keyColumn].ToString();
+                                key = row[keyColumn].ToString() ?? "";
                             }
                             if (existigProductVariantIdsCombination.ContainsKey(key))
                             {
-                                string rowProductVariantId = row["ProductVariantID"].ToString();
-                                List<Tuple<string, string, string>> variantsInfoList = (List<Tuple<string, string, string>>)existigProductVariantIdsCombination[key];
-                                foreach (Tuple<string, string, string> variantInfo in variantsInfoList)
+                                string? rowProductVariantId = row["ProductVariantID"].ToString();
+                                List<Tuple<string, string, string>>? variantsInfoList = (List<Tuple<string, string, string>>?)existigProductVariantIdsCombination[key];
+                                if (variantsInfoList is not null)
                                 {
-                                    if (string.IsNullOrEmpty(rowProductVariantId) || !string.Equals(rowProductVariantId, variantInfo.Item1))
+                                    foreach (Tuple<string, string, string> variantInfo in variantsInfoList)
                                     {
-                                        newRow = DataToWrite.Tables[tableName].NewRow();
-                                        newRow.ItemArray = row.ItemArray.Clone() as object[];
-                                        newRow["ProductVariantID"] = variantInfo.Item1;
-                                        newRow["ProductVariantCounter"] = variantInfo.Item2;
-                                        newRow["ProductVariantProdCounter"] = variantInfo.Item3;
-                                        rowsToAdd.Add(newRow);
+                                        if (string.IsNullOrEmpty(rowProductVariantId) || !string.Equals(rowProductVariantId, variantInfo.Item1))
+                                        {
+                                            newRow = DataToWrite?.Tables?[tableName]?.NewRow();
+                                            if (newRow is not null)
+                                            {
+                                                if (row?.ItemArray is not null)
+                                                {
+                                                    newRow.ItemArray = (object?[])row.ItemArray.Clone();
+                                                }
+                                                newRow["ProductVariantID"] = variantInfo.Item1;
+                                                newRow["ProductVariantCounter"] = variantInfo.Item2;
+                                                newRow["ProductVariantProdCounter"] = variantInfo.Item3;
+                                                rowsToAdd.Add(newRow);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -3669,17 +3691,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 DataRowsToWrite[tableName].Add(RowAutoId++.ToString(), new List<DataRow>() { dt });
             }
-            rowsToAdd = null;
         }
-        existigProductVariantIdsCombination = null;
     }
 
     private Hashtable GetExistingProductVariantsIDsCombinations(string searchingDifferentProductsColumn)
     {
         Hashtable result = new Hashtable();
         DataRow[] rows = ExistingProducts.Select("ProductVariantID <> ''");
-        string key = null;
-        string languageId = null;
+        string key;
+        string? languageId = null;
 
         foreach (DataRow row in rows)
         {
@@ -3692,22 +3712,26 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 else
                 {
-                    key = row[searchingDifferentProductsColumn].ToString();
+                    key = row[searchingDifferentProductsColumn].ToString() ?? "";
                 }
 
-                Tuple<string, string, string> variantInfo = new Tuple<string, string, string>
+                Tuple<string?, string?, string?> variantInfo = new Tuple<string?, string?, string?>
                     (
                         row["ProductVariantID"].ToString(),
                         row["ProductVariantCounter"].ToString(), row["ProductVariantProdCounter"].ToString()
                     );
                 if (result.ContainsKey(key))
                 {
-                    List<Tuple<string, string, string>> variantIDsList = (List<Tuple<string, string, string>>)result[key];
-                    variantIDsList.Add(variantInfo);
+                    var value = result[key];
+                    if (value is not null)
+                    {
+                        List<Tuple<string?, string?, string?>> variantIDsList = (List<Tuple<string?, string?, string?>>)value;
+                        variantIDsList?.Add(variantInfo);
+                    }
                 }
                 else
                 {
-                    result[key] = new List<Tuple<string, string, string>>() { variantInfo };
+                    result[key] = new List<Tuple<string?, string?, string?>>() { variantInfo };
                 }
             }
         }
@@ -3731,12 +3755,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
                     DataTable ecomProductsRelatedDataTable = tables.First();
                     bool productsRelatedTableIsPresent = false; //ecomProductsRelatedDataTable.Rows.Count > 0;
-                    Dictionary<string, List<DataRow>> ecomProductsRelatedDataTableRows = null;
+                    Dictionary<string, List<DataRow>>? ecomProductsRelatedDataTableRows = null;
                     if (DataRowsToWrite.TryGetValue(ecomProductsRelatedDataTable.TableName, out ecomProductsRelatedDataTableRows))
                     {
                         productsRelatedTableIsPresent = ecomProductsRelatedDataTableRows.Values.SelectMany(c => c).Any();
                     }
-                    Dictionary<string, List<DataRow>> tableRows = null;
+                    Dictionary<string, List<DataRow>>? tableRows = null;
                     if (DataRowsToWrite.TryGetValue(dataTable.TableName, out tableRows))
                     {
                         foreach (DataRow row in tableRows.Values.SelectMany(c => c))
@@ -3745,11 +3769,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
                             var relatedProductIds = SplitOnComma(relatedProductIdsStr);
                             for (int i = 0; i < relatedProductIds.Length; i++)
                             {
-                                string relatedGroupID = string.Empty;
+                                string? relatedGroupID = string.Empty;
                                 if (productsRelatedTableIsPresent)
                                 {
-                                    var filter = new Func<DataRow, bool>(r => r["ProductRelatedProductID"].ToString() == row["ProductID"].ToString() && r["ProductRelatedProductRelID"] == relatedProductIds[i]);
-                                    DataRow productsRelRow = FindRow(ecomProductsRelatedDataTable.TableName, filter);
+                                    var filter = new Func<DataRow, bool>(r => r["ProductRelatedProductID"].ToString() == row["ProductID"].ToString() && r["ProductRelatedProductRelID"].ToString() == relatedProductIds[i]);
+                                    DataRow? productsRelRow = FindRow(ecomProductsRelatedDataTable.TableName, filter);
                                     //DataRow[] productsRelatedRows = ecomProductsRelatedDataTable.Select("ProductRelatedProductID='" + row["ProductID"].ToString().Replace("'", "''") + "' and ProductRelatedProductRelID='" + relatedProductIds[i].Replace("'", "''") + "'");
                                     if (productsRelRow != null)
                                     {
@@ -3758,7 +3782,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                                 }
                                 if (string.IsNullOrEmpty(relatedGroupID))
                                 {
-                                    relatedGroupID = GetDefaultGroupID(row["ProductLanguageID"].ToString());
+                                    relatedGroupID = GetDefaultGroupID(row["ProductLanguageID"].ToString() ?? "");
                                 }
 
                                 AddRelatedProductReferenceToProduct(dataTable, tableRows, ecomProductsRelatedDataTable, row["ProductID"].ToString(), relatedProductIds[i], relatedGroupID);
@@ -3774,7 +3798,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private void AddRelatedProductReferenceToProduct(DataTable ecomProductsDataTable, Dictionary<string, List<DataRow>> ecomProductsDataTableRows, DataTable ecomProductsRelatedDataTable, string productID, string relatedProduct, string relatedGroupID)
+    private void AddRelatedProductReferenceToProduct(DataTable ecomProductsDataTable, Dictionary<string, List<DataRow>> ecomProductsDataTableRows, DataTable ecomProductsRelatedDataTable, string? productID, string relatedProduct, string? relatedGroupID)
     {
         var filter = new Func<DataRow, bool>(r => r["ProductID"].ToString() == relatedProduct);
         //find ProductID by relatedProduct string(it can contain ID, Number, Name)
@@ -3795,7 +3819,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 if (rows?.Count == 0)
                 {
-                    DataRow row = GetExistingProductDataRow(relatedProduct);
+                    DataRow? row = GetExistingProductDataRow(relatedProduct);
                     if (row != null)
                     {
                         rows = new List<DataRow>() { row };
@@ -3805,7 +3829,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         if (rows?.Count > 0)//if Product found
         {
-            string relatedProductID = rows[0]["ProductID"].ToString();
+            string? relatedProductID = rows[0]["ProductID"].ToString();
 
             filter = new Func<DataRow, bool>(r => r["ProductRelatedProductID"].ToString() == productID && r["ProductRelatedProductRelID"].ToString() == relatedProductID && r["ProductRelatedGroupID"].ToString() == relatedGroupID);
             //string filter = string.Format("ProductRelatedProductID='{0}' and ProductRelatedProductRelID='{1}' and ProductRelatedGroupID='{2}'", productID, relatedProductID, relatedGroupID);
@@ -3817,7 +3841,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 productRelation["ProductRelatedProductRelID"] = relatedProductID;
                 productRelation["ProductRelatedGroupID"] = relatedGroupID;
 
-                Dictionary<string, List<DataRow>> productRelations = null;
+                Dictionary<string, List<DataRow>>? productRelations = null;
                 if (!DataRowsToWrite.TryGetValue(ecomProductsRelatedDataTable.TableName, out productRelations))
                 {
                     productRelations = new Dictionary<string, List<DataRow>>();
@@ -3829,9 +3853,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
     }
 
     //Returns existing ProductID, if Product is not found returns id like "ImportedPROD"LastProductId
-    private DataRow GetExistingProduct(Dictionary<string, object> row, Mapping mapping, ColumnMapping productNumberColumn, ColumnMapping productNameColumn)
+    private DataRow? GetExistingProduct(Dictionary<string, object> row, Mapping mapping, ColumnMapping? productNumberColumn, ColumnMapping? productNameColumn)
     {
-        DataRow result = GetExistingProductByPKColumns(row, mapping);
+        DataRow? result = GetExistingProductByPKColumns(row, mapping);
 
         if (result == null && !useStrictPrimaryKeyMatching)
         {
@@ -3839,9 +3863,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (ecomProductsPKColumns == null || !ecomProductsPKColumns.Contains("ProductNumber"))
             {
                 //search existing products by ProductNumber
-                if (productNumberColumn != null && !string.IsNullOrEmpty(productNumberColumn.SourceColumn.Name))
+                if (productNumberColumn != null && !string.IsNullOrEmpty(productNumberColumn.SourceColumn?.Name))
                 {
-                    string productNumber = row[productNumberColumn.SourceColumn.Name].ToString();
+                    string? productNumber = row[productNumberColumn.SourceColumn.Name].ToString();
                     if (!string.IsNullOrEmpty(productNumber))
                     {
                         var rows = ExistingProducts.Select("ProductNumber='" + productNumber.Replace("'", "''") + "'");
@@ -3855,9 +3879,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (result == null && (ecomProductsPKColumns == null || !ecomProductsPKColumns.Contains("ProductName")))
             {
                 //search existing products by ProductName
-                if (productNameColumn != null && !string.IsNullOrEmpty(productNameColumn.SourceColumn.Name))
+                if (productNameColumn != null && !string.IsNullOrEmpty(productNameColumn.SourceColumn?.Name))
                 {
-                    string productName = row[productNameColumn.SourceColumn.Name].ToString();
+                    string? productName = row[productNameColumn.SourceColumn.Name].ToString();
                     if (!string.IsNullOrEmpty(productName))
                     {
                         var rows = ExistingProducts.Select("ProductName='" + productName.Replace("'", "''") + "'");
@@ -3876,7 +3900,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private Dictionary<int, IEnumerable<string>> GetEcomProductsPKColumns()
     {
         Dictionary<int, IEnumerable<string>> result = new Dictionary<int, IEnumerable<string>>();
-        if (Mappings.TryGetValue("EcomProducts", out List<Mapping> productsMappings))
+        if (Mappings.TryGetValue("EcomProducts", out List<Mapping>? productsMappings))
         {
             foreach (var mapping in productsMappings)
             {
@@ -3893,9 +3917,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return result;
     }
 
-    private DataRow GetExistingProductByPKColumns(Dictionary<string, object> row, Mapping mapping)
+    private DataRow? GetExistingProductByPKColumns(Dictionary<string, object> row, Mapping mapping)
     {
-        DataRow result = null;
+        DataRow? result = null;
 
         MappingIdEcomProductsPKColumns.TryGetValue(mapping.GetId(), out var ecomProductsPKColumns);
         if (ecomProductsPKColumns?.Count() > 0)
@@ -3908,7 +3932,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
                 if (columnMapping != null && !string.IsNullOrEmpty(columnMapping.SourceColumn?.Name))
                 {
-                    string value = GetValue(columnMapping, row);
+                    string? value = GetValue(columnMapping, row);
                     if (!string.IsNullOrEmpty(value))
                     {
                         query += $"{column}='" + value.Replace("'", "''") + "' AND ";
@@ -3934,9 +3958,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
     /// </summary>
     /// <param name="searchString"></param>
     /// <returns>Returns existing DataRow with product information if found, otherwise null</returns>
-    private DataRow GetExistingProductDataRow(string searchString)
+    private DataRow? GetExistingProductDataRow(string searchString)
     {
-        DataRow result = null;
+        DataRow? result = null;
         DataRow[] rows = ExistingProducts.Select("ProductID='" + searchString + "'");
         if (rows.Length > 0)
         {
@@ -3961,9 +3985,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return result;
     }
 
-    private StockLocation GetExistingStockLocation(Dictionary<string, object> row, ColumnMapping stockLocationIdColumn)
+    private StockLocation? GetExistingStockLocation(Dictionary<string, object> row, ColumnMapping stockLocationIdColumn)
     {
-        StockLocation result = null;
+        StockLocation? result = null;
         if (stockLocationIdColumn != null && !string.IsNullOrEmpty(stockLocationIdColumn.SourceColumn.Name))
         {
             var stockLocationId = row[stockLocationIdColumn.SourceColumn.Name]?.ToString() ?? string.Empty;
@@ -3991,12 +4015,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
     }
 
     //Returns existing ManufacturerID if found Manufacturer by ManufacturerName. Returns null if no manufacturer found.
-    private DataRow GetExistingManufacturer(Dictionary<string, object> row, ColumnMapping manufacturerNameColumn)
+    private DataRow? GetExistingManufacturer(Dictionary<string, object> row, ColumnMapping? manufacturerNameColumn)
     {
-        DataRow result = null;
+        DataRow? result = null;
         if (manufacturerNameColumn != null && !string.IsNullOrEmpty(manufacturerNameColumn.SourceColumn.Name))
         {
-            string manufacturerName = row[manufacturerNameColumn.SourceColumn.Name].ToString();
+            string? manufacturerName = row[manufacturerNameColumn.SourceColumn.Name].ToString();
             if (!string.IsNullOrEmpty(manufacturerName))
             {
                 foreach (var manufactorerRow in ProductManufacturers.Values)
@@ -4037,9 +4061,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void ClearHashTables()
     {
-        ecomVariantOptionsProductRelationKeys = null;
-        ecomGroupProductRelationKeys = null;
-        ecomVariantgroupProductrelationKeys = null;
+        ecomVariantOptionsProductRelationKeys.Clear();
+        ecomGroupProductRelationKeys.Clear();
+        ecomVariantgroupProductrelationKeys.Clear();
     }
 
     internal void CleanRelationsTables(SqlTransaction transaction)
@@ -4066,7 +4090,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     internal void RebuildAssortments()
     {
-        assortmentHandler.RebuildAssortments();
+        assortmentHandler?.RebuildAssortments();
     }
 
     private void RemoveExcessFromRelationsTables(SqlTransaction sqlTransaction)
@@ -4135,7 +4159,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         sqlCommand.Transaction = sqlTransaction;
         try
         {
-            StringBuilder sqlClean = null;
+            StringBuilder? sqlClean = null;
             if (partialUpdate)
             {
                 sqlClean = new StringBuilder();
@@ -4176,15 +4200,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private bool HasRowsToImport(Mapping mapping, out string tempTablePrefix)
+    private bool HasRowsToImport(Mapping? mapping, out string tempTablePrefix)
     {
         bool result = false;
-        tempTablePrefix = "TempTableForBulkImport" + mapping.GetId();
+        tempTablePrefix = "TempTableForBulkImport" + mapping?.GetId();
 
         if (mapping != null && mapping.DestinationTable != null && mapping.DestinationTable.Name != null && DataToWrite != null && DataToWrite.Tables != null)
         {
             string destinationTableName = GetTableName(mapping.DestinationTable.Name, mapping);
-            Dictionary<string, List<DataRow>> rows = null;
+            Dictionary<string, List<DataRow>>? rows = null;
             if (DataRowsToWrite.TryGetValue(destinationTableName, out rows) && rows.Values.Count > 0)
             {
                 result = true;
@@ -4198,11 +4222,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return result;
     }
 
-    private DataRow FindRow(string tableName, string id)
+    private DataRow? FindRow(string tableName, string id)
     {
         DataRow[] ret = new DataRow[0];
 
-        Dictionary<string, List<DataRow>> table = null;
+        Dictionary<string, List<DataRow>>? table = null;
         if (!DataRowsToWrite.TryGetValue(tableName, out table))
         {
             foreach (var key in DataRowsToWrite.Keys)
@@ -4216,7 +4240,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return table != null && table.ContainsKey(id) ? table[id][0] : null;
     }
 
-    private DataTable FindDataTableByName(string tableName)
+    private DataTable? FindDataTableByName(string tableName)
     {
         foreach (DataTable table in DataToWrite.Tables)
         {
@@ -4243,8 +4267,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private DataRow GetDataTableNewRow(string tableName)
     {
-        DataRow row = null;
-        DataTable table = FindDataTableByName(tableName);
+        DataRow? row = null;
+        DataTable? table = FindDataTableByName(tableName);
         if (table == null)
         {
             foreach (DataTable foundTable in FindDataTablesStartingWithName(tableName))
@@ -4277,9 +4301,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return false;
     }
 
-    private string GetValue(ColumnMapping columnMapping, Dictionary<string, object> row)
+    private string? GetValue(ColumnMapping? columnMapping, Dictionary<string, object> row)
     {
-        string result = null;
+        string? result = null;
         if (columnMapping != null && (columnMapping.HasScriptWithValue || row.ContainsKey(columnMapping.SourceColumn.Name)))
         {
             switch (columnMapping.ScriptType)
@@ -4304,15 +4328,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return result;
     }
 
-    private string GetMergedValue(ColumnMapping columnMapping, Dictionary<string, object> row)
+    private string? GetMergedValue(ColumnMapping? columnMapping, Dictionary<string, object> row)
     {
-        string result = null;
+        string? result = null;
         if (columnMapping == null) return result;
         if (columnMapping.DestinationColumn == null) return result;
         foreach (var item in columnMapping.Mapping.GetColumnMappings().Where(obj => obj.DestinationColumn.Name == columnMapping.DestinationColumn.Name))
         {
-            object rowValue = null;
-            if (columnMapping.HasScriptWithValue || row.TryGetValue(item.SourceColumn?.Name, out rowValue))
+            object? rowValue = null;
+            if (columnMapping.HasScriptWithValue || row.TryGetValue(item.SourceColumn?.Name ?? "", out rowValue))
             {
                 object dataToRow = columnMapping.ConvertInputValueToOutputValue(rowValue);
 
@@ -4355,11 +4379,11 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (isParentGroupsInMapping && rowsToWrite != null && rowsToWrite.Count > 0)
             {
                 Dictionary<string, string> searchResults = new Dictionary<string, string>();
-                string groupId, group;
+                string? groupId, group;
 
                 foreach (DataRow row in rowsToWrite.Values.SelectMany(c => c))
                 {
-                    group = row["GroupRelationsParentID"].ToString();
+                    group = row["GroupRelationsParentID"].ToString() ?? "";
                     if (!searchResults.TryGetValue(group, out groupId))
                     {
                         groupId = FindGroupId(group);

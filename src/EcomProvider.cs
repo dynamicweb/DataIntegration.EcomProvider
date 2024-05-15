@@ -19,19 +19,19 @@ namespace Dynamicweb.DataIntegration.Providers.EcomProvider;
 [AddInName("Dynamicweb.DataIntegration.Providers.Provider"), AddInLabel("Ecom Provider"), AddInDescription("Ecom provider"), AddInIgnore(false)]
 public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibility, ISource, IDestination
 {
-    private Schema Schema;
+    private Schema? Schema;
     private bool IsFirstJobRun = true;
 
     #region Source AddIns
     [AddInParameter("Source language")]
     [AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Select only products in this language.")]
     [AddInParameterGroup("Source")]
-    public string SourceLanguage { get; set; }
+    public string SourceLanguage { get; set; } = "";
 
     [AddInParameter("Source shop")]
     [AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Select only products from this shop.")]
     [AddInParameterGroup("Source")]
-    public string SourceShop { get; set; }
+    public string SourceShop { get; set; } = "";
 
     [AddInParameter("Get groups for variant options by:")]
     [AddInParameterEditor(typeof(RadioParameterEditor), "")]
@@ -120,7 +120,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
     #endregion
 
     #region Destination AddIns
-    private string defaultLanguage = null;
+    private string? defaultLanguage;
     [AddInParameter("Default Language")]
     [AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Set the default language for the imported products")]
     [AddInParameterGroup("Destination")]
@@ -145,7 +145,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
     [AddInParameterEditor(typeof(DropDownParameterEditor), "none=true;Tooltip=Set a shop for the imported products")]
     [AddInParameterGroup("Destination")]
     [AddInParameterOrder(20)]
-    public string Shop { get; set; }
+    public string Shop { get; set; } = "";
 
     [AddInParameter("Insert only new records")]
     [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Inserts new records present in the source, but does not update existing records")]
@@ -221,12 +221,12 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
     [AddInParameter("User key field")]
     [AddInParameterEditor(typeof(TextParameterEditor), "")]
     [AddInParameterGroup("Hidden")]
-    public string UserKeyField { get; set; }
+    public string UserKeyField { get; set; } = "";
 
     [AddInParameter("Repositories index update")]
     [AddInParameterEditor(typeof(DropDownParameterEditor), "multiple=true;none=true;Tooltip=Index update might affect on slower perfomance")]
     [AddInParameterGroup("Destination")]
-    public string RepositoriesIndexUpdate { get; set; }
+    public string RepositoriesIndexUpdate { get; set; } = "";
 
     [AddInParameter("Disable cache clearing")]
     [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=This setting disables cache clearing after import\t")]
@@ -257,16 +257,16 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
     /// </summary>
     public virtual bool PartialUpdate { get; set; }
 
-    private string SqlConnectionString { get; set; }
+    private string? SqlConnectionString { get; set; }
 
-    private SqlConnection connection;
+    private SqlConnection? connection;
     protected SqlConnection Connection
     {
         get { return connection ??= (SqlConnection)Database.CreateConnection(); }
         set { connection = value; }
     }
 
-    private EcomDestinationWriter Writer;
+    private EcomDestinationWriter? Writer;
 
     public EcomProvider(string connectionString)
     {
@@ -373,38 +373,30 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
     private Schema GetDynamicwebSourceSchema()
     {
         Schema result = GetSqlSourceSchema(Connection);
+        var tables = result.GetTables();
         //set key for AccessUserTable
         if (UserKeyField != null)
         {
-            Column keyColumn = result.GetTables().Find(t => t.Name == "AccessUser").Columns.Find(c => c.Name == UserKeyField);
-            if (keyColumn != null)
-                keyColumn.IsPrimaryKey = true;
+            UpdateColumn(tables?.Find(t => t.Name == "AccessUser"), UserKeyField);            
         }
 
         //Set key for other tables that are missing keys in the database
-        var table = result.GetTables().FirstOrDefault(t => t.Name == "Ecom7Tree");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "id").IsPrimaryKey = true;
-        }
-        if (result.GetTables().Exists(t => t.Name.Contains("Ipaper")))
+        UpdateColumn(tables?.FirstOrDefault(t => t.Name == "Ecom7Tree"), "id");
+        
+        if (tables is not null && tables.Exists(t => t.Name.Contains("Ipaper")))
         {
             UpdateIPaperTables(result);
         }
-        table = result.GetTables().Find(t => t.Name == "Statv2SessionBot");
-        if (table != null)
-            table.Columns.Find(c => c.Name == "Statv2SessionID").IsPrimaryKey = true;
-        table = result.GetTables().Find(t => t.Name == "Statv2UserAgents");
-        if (table != null)
-            table.Columns.Find(c => c.Name == "Statv2UserAgentsID").IsPrimaryKey = true;
+        UpdateColumn(tables?.Find(t => t.Name == "Statv2SessionBot"), "Statv2SessionID");
+        UpdateColumn(tables?.Find(t => t.Name == "Statv2UserAgents"), "Statv2UserAgentsID");
 
         //For EcomProducts Remove ProductAutoID column from schema
-        Table ecomProductsTable = result.GetTables().Find(t => t.Name == "EcomProducts");
+        Table? ecomProductsTable = tables?.Find(t => t.Name == "EcomProducts");
         if (ecomProductsTable != null)
         {
             ecomProductsTable.Columns.RemoveAll(c => c.Name == "ProductAutoID");
         }
-        Table ecomAssortmentPermissionsTable = result.GetTables().Find(t => t.Name == "EcomAssortmentPermissions");
+        Table? ecomAssortmentPermissionsTable = tables?.Find(t => t.Name == "EcomAssortmentPermissions");
         if (ecomAssortmentPermissionsTable != null)
         {
             ecomAssortmentPermissionsTable.AddColumn(new SqlColumn(("AssortmentPermissionCustomerNumber"), typeof(string), SqlDbType.NVarChar, ecomAssortmentPermissionsTable, -1, false, false, true));
@@ -427,60 +419,25 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
     private void UpdateIPaperTables(Schema schema)
     {
-        Table table = schema.GetTables().Find(t => t.Name == "IpaperCategories");
-        if (table != null)
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperCategories"), "CategoryID");
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperLanguageKeys"), "LanguageKeyID");
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperLanguageKeyValues"), "LanguageKeyValueID");
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperLanguages"), "LanguageID");
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperPapers"), "PaperID");
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperSettingDescriptions"), "DescriptionID");
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperPages"), "PageID");
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperSettingGroups"), "GroupID");
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperSettings"), "SettingID");
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperSettingSets"), "SetID");
+        UpdateColumn(schema.GetTables().Find(t => t.Name == "IpaperSettingTypes"), "TypeID");
+    }
+
+    private void UpdateColumn(Table? table, string columnName)
+    {
+        var column = table?.Columns?.Find(c => c.Name == columnName);
+        if (column is not null)
         {
-            table.Columns.Find(c => c.Name == "CategoryID").IsPrimaryKey = true;
-        }
-        table = schema.GetTables().Find(t => t.Name == "IpaperLanguageKeys");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "LanguageKeyID").IsPrimaryKey = true;
-        }
-        table = schema.GetTables().Find(t => t.Name == "IpaperLanguageKeyValues");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "LanguageKeyValueID").IsPrimaryKey = true;
-        }
-        table = schema.GetTables().Find(t => t.Name == "IpaperLanguages");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "LanguageID").IsPrimaryKey = true;
-        }
-        table = schema.GetTables().Find(t => t.Name == "IpaperPapers");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "PaperID").IsPrimaryKey = true;
-        }
-        table = schema.GetTables().Find(t => t.Name == "IpaperSettingDescriptions");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "DescriptionID").IsPrimaryKey = true;
-        }
-        table = schema.GetTables().Find(t => t.Name == "IpaperPages");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "PageID").IsPrimaryKey = true;
-        }
-        table = schema.GetTables().Find(t => t.Name == "IpaperSettingGroups");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "GroupID").IsPrimaryKey = true;
-        }
-        table = schema.GetTables().Find(t => t.Name == "IpaperSettings");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "SettingID").IsPrimaryKey = true;
-        }
-        table = schema.GetTables().Find(t => t.Name == "IpaperSettingSets");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "SetID").IsPrimaryKey = true;
-        }
-        table = schema.GetTables().Find(t => t.Name == "IpaperSettingTypes");
-        if (table != null)
-        {
-            table.Columns.Find(c => c.Name == "TypeID").IsPrimaryKey = true;
+            column.IsPrimaryKey = true;
         }
     }
 
@@ -526,7 +483,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                 case "SqlConnectionString":
                     if (node.HasChildNodes)
                     {
-                        SqlConnectionString = node.FirstChild.Value;
+                        SqlConnectionString = node.FirstChild?.Value;
                         Connection = new SqlConnection(SqlConnectionString);
                     }
                     break;
@@ -536,169 +493,169 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                 case "RemoveMissingAfterImport":
                     if (node.HasChildNodes)
                     {
-                        RemoveMissingAfterImport = node.FirstChild.Value == "True";
+                        RemoveMissingAfterImport = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "RemoveMissingAfterImportDestinationTablesOnly":
                     if (node.HasChildNodes)
                     {
-                        RemoveMissingAfterImportDestinationTablesOnly = node.FirstChild.Value == "True";
+                        RemoveMissingAfterImportDestinationTablesOnly = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "DeactivateMissingProducts":
                     if (node.HasChildNodes)
                     {
-                        DeactivateMissingProducts = node.FirstChild.Value == "True";
+                        DeactivateMissingProducts = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "Shop":
                     if (node.HasChildNodes)
                     {
-                        Shop = node.FirstChild.Value;
+                        Shop = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "SourceShop":
                     if (node.HasChildNodes)
                     {
-                        SourceShop = node.FirstChild.Value;
+                        SourceShop = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "UserKeyField":
                     if (node.HasChildNodes)
                     {
-                        UserKeyField = node.FirstChild.Value;
+                        UserKeyField = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "GroupsForProductsBy":
                     if (node.HasChildNodes)
                     {
-                        GroupsForProductsBy = node.FirstChild.Value;
+                        GroupsForProductsBy = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "GroupsForVariantOptionsBy":
                     if (node.HasChildNodes)
                     {
-                        GroupsForVariantOptionsBy = node.FirstChild.Value;
+                        GroupsForVariantOptionsBy = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "ManufacturerForProductsBy":
                     if (node.HasChildNodes)
                     {
-                        ManufacturerForProductsBy = node.FirstChild.Value;
+                        ManufacturerForProductsBy = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "RelatedProductGroupsBy":
                     if (node.HasChildNodes)
                     {
-                        RelatedProductGroupsBy = node.FirstChild.Value;
+                        RelatedProductGroupsBy = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "RelatedProductsBy":
                     if (node.HasChildNodes)
                     {
-                        RelatedProductsBy = node.FirstChild.Value;
+                        RelatedProductsBy = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "VariantGroupsForProductsBy":
                     if (node.HasChildNodes)
                     {
-                        VariantGroupsForProductsBy = node.FirstChild.Value;
+                        VariantGroupsForProductsBy = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "DefaultLanguage":
                     if (node.HasChildNodes)
                     {
-                        DefaultLanguage = node.FirstChild.Value;
+                        DefaultLanguage = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "SourceLanguage":
                     if (node.HasChildNodes)
                     {
-                        SourceLanguage = node.FirstChild.Value;
+                        SourceLanguage = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "UpdateOnlyExistingProducts":
                     if (node.HasChildNodes)
                     {
-                        UpdateOnlyExistingProducts = node.FirstChild.Value == "True";
+                        UpdateOnlyExistingProducts = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "UseStrictPrimaryKeyMatching":
                     if (node.HasChildNodes)
                     {
-                        UseStrictPrimaryKeyMatching = node.FirstChild.Value == "True";
+                        UseStrictPrimaryKeyMatching = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "CreateMissingGoups":
                     if (node.HasChildNodes)
                     {
-                        CreateMissingGoups = node.FirstChild.Value == "True";
+                        CreateMissingGoups = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "RepositoriesIndexUpdate":
                     if (node.HasChildNodes)
                     {
-                        RepositoriesIndexUpdate = node.FirstChild.Value;
+                        RepositoriesIndexUpdate = node.FirstChild?.Value ?? "";
                     }
                     break;
                 case "DeleteProductsAndGroupForSpecificLanguage":
                     if (node.HasChildNodes)
                     {
-                        DeleteProductsAndGroupForSpecificLanguage = node.FirstChild.Value == "True";
+                        DeleteProductsAndGroupForSpecificLanguage = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "UpdateOnlyExistingRecords":
                     if (node.HasChildNodes)
                     {
-                        UpdateOnlyExistingRecords = node.FirstChild.Value == "True";
+                        UpdateOnlyExistingRecords = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "DeleteIncomingItems":
                     if (node.HasChildNodes)
                     {
-                        DeleteIncomingItems = node.FirstChild.Value == "True";
+                        DeleteIncomingItems = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "DiscardDuplicates":
                     if (node.HasChildNodes)
                     {
-                        DiscardDuplicates = node.FirstChild.Value == "True";
+                        DiscardDuplicates = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "HideDeactivatedProducts":
                     if (node.HasChildNodes)
                     {
-                        HideDeactivatedProducts = node.FirstChild.Value == "True";
+                        HideDeactivatedProducts = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "InsertOnlyNewRecords":
                     if (node.HasChildNodes)
                     {
-                        InsertOnlyNewRecords = node.FirstChild.Value == "True";
+                        InsertOnlyNewRecords = node.FirstChild?.Value == "True";
                     }
                     break;
                 case nameof(DisableCacheClearing):
                     if (node.HasChildNodes)
                     {
-                        DisableCacheClearing = node.FirstChild.Value == "True";
+                        DisableCacheClearing = node.FirstChild?.Value == "True";
                     }
                     break;
                 case "SkipFailingRows":
                     if (node.HasChildNodes)
                     {
-                        SkipFailingRows = node.FirstChild.Value == "True";
+                        SkipFailingRows = node.FirstChild?.Value == "True";
                     }
                     break;
                 case nameof(UseProductIdFoundByNumber):
                     if (node.HasChildNodes)
                     {
-                        UseProductIdFoundByNumber = node.FirstChild.Value == "True";
+                        UseProductIdFoundByNumber = node.FirstChild?.Value == "True";
                     }
                     break;
                 case nameof(IgnoreEmptyCategoryFieldValues):
                     if (node.HasChildNodes)
                     {
-                        IgnoreEmptyCategoryFieldValues = node.FirstChild.Value == "True";
+                        IgnoreEmptyCategoryFieldValues = node.FirstChild?.Value == "True";
                     }
                     break;
             }
@@ -716,7 +673,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
     public override string ValidateSourceSettings()
     {
-        return null;
+        return "";
     }
 
     void ISource.SaveAsXml(XmlTextWriter xmlTextWriter)
@@ -958,12 +915,12 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         {
             OrderTablesInJob(job, false);
         }
-        SqlTransaction sqlTransaction = null;
+        SqlTransaction? sqlTransaction = null;
         if (Connection.State.ToString() != "Open")
             Connection.Open();
 
-        Dictionary<string, object> sourceRow = null;
-        Exception exception = null;
+        Dictionary<string, object>? sourceRow = null;
+        Exception? exception = null;
 
         try
         {
@@ -1001,7 +958,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                             shopColumnMapping.ScriptType = ScriptType.Constant;
                             shopColumnMapping.ScriptValue = Shop;
                         }
-                    }                    
+                    }
 
                     Logger.Log("Starting import to temporary table for " + mapping.DestinationTable.Name + ".");
                     using (var reader = job.Source.GetReader(mapping))
@@ -1036,12 +993,12 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             sqlTransaction = Connection.BeginTransaction();
             if (DeleteIncomingItems)
             {
-                Writer.DeleteExistingFromMainTable(Shop, sqlTransaction, defaultLanguage);
+                Writer.DeleteExistingFromMainTable(Shop, sqlTransaction, DefaultLanguage);
             }
             else
             {
                 Writer.MoveDataToMainTables(Shop, sqlTransaction, UpdateOnlyExistingRecords, InsertOnlyNewRecords);
-                Writer.DeleteExcessFromMainTable(Shop, sqlTransaction, defaultLanguage, DeleteProductsAndGroupForSpecificLanguage, HideDeactivatedProducts);
+                Writer.DeleteExcessFromMainTable(Shop, sqlTransaction, DefaultLanguage, DeleteProductsAndGroupForSpecificLanguage, HideDeactivatedProducts);
             }
             Writer.CleanRelationsTables(sqlTransaction);
             sqlTransaction.Commit();
@@ -1061,9 +1018,9 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         {
             exception = ex;
             string msg = ex.Message;
-            string stackTrace = ex.StackTrace;
+            string? stackTrace = ex.StackTrace;
 
-            Logger?.Error($"Error: {msg.Replace(System.Environment.NewLine, " ")} Stack: {stackTrace.Replace(System.Environment.NewLine, " ")}", ex);
+            Logger?.Error($"Error: {msg.Replace(System.Environment.NewLine, " ")} Stack: {stackTrace?.Replace(System.Environment.NewLine, " ")}", ex);
             LogManager.System.GetLogger(LogCategory.Application, "Dataintegration").Error($"{GetType().Name} error: {msg} Stack: {stackTrace}", ex);
 
             if (ex.Message.Contains("Subquery returned more than 1 value"))
@@ -1071,19 +1028,19 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
             if (ex.Message.Contains("Bulk copy failures"))
             {
-                Logger.Log("Job Failed with the following message:");
+                Logger?.Log("Job Failed with the following message:");
                 BulkCopyHelper.LogFailedRows(Logger, msg);
             }
             else if (ex.Message.Contains(EcomDestinationWriter.EcomProductsMissingGroupsErrorMessage) && Writer != null)
             {
-                Logger.Log("Job Failed with the following message:");
+                Logger?.Log("Job Failed with the following message:");
                 Writer.LogFailedRows();
             }
             else
             {
                 if (sourceRow != null)
                     msg += GetFailedSourceRowMessage(sourceRow);
-                Logger.Log("Job Failed with the following message: " + msg);
+                Logger?.Log("Job Failed with the following message: " + msg);
             }
 
             if (sqlTransaction != null)
