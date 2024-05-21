@@ -304,7 +304,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             "EcomProducts", "EcomManufacturers", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions",
             "EcomProductsRelated", "EcomProductItems", "EcomStockUnit", "EcomDetails","EcomProductCategoryFieldValue", "EcomLanguages", "EcomPrices",
             "EcomAssortmentGroupRelations", "EcomAssortmentPermissions", "EcomAssortmentProductRelations", "EcomAssortments", "EcomAssortmentShopRelations",
-            "EcomVariantOptionsProductRelation", "EcomCurrencies", "EcomCountries", "EcomStockLocation", "EcomDiscount"
+            "EcomVariantOptionsProductRelation", "EcomCurrencies", "EcomCountries", "EcomStockLocation", "EcomDiscount", "EcomUnitOfMeasure"
         };
         List<Table> tablesToRemove = new();
         foreach (Table table in result.GetTables())
