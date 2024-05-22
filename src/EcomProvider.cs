@@ -893,6 +893,10 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         if (mappings != null)
             tables.AddRange(mappings);
 
+        mappings = GetMappingsByName(job.Mappings, "EcomUnitOfMeasure", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
         job.Mappings = tables;
     }
 
