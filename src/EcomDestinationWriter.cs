@@ -1843,7 +1843,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         if (!columnMappings.TryGetValue("UnitOfMeasureLanguageId", out _))
         {
-            dataRow["UnitOfMeasureLanguageId"] = Ecommerce.Services.Languages.GetDefaultLanguageId();
+            dataRow["UnitOfMeasureLanguageId"] = _defaultLanguageId;
         }
     }
 
