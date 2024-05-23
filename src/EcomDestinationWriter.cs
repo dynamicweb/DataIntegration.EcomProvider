@@ -354,6 +354,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     case "EcomUnitOfMeasure":
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitOfMeasureId", typeof(string), SqlDbType.Int, -1, false, true, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitOfMeasureLanguageId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitOfMeasureExternalId", typeof(string), SqlDbType.NVarChar, 50, false, false, false);
                         break;
                 }                
                 if (Mappings.TryGetValue(table.Name, out List<Mapping>? tableMappings))
@@ -1085,7 +1086,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             if (_existingUnitOfMeasures == null)
             {
-                DataSet dataSet = Database.CreateDataSet(CommandBuilder.Create("SELECT UnitOfMeasureId, UnitOfMeasureCode FROM EcomUnitOfMeasure"), sqlCommand.Connection);
+                DataSet dataSet = Database.CreateDataSet(CommandBuilder.Create("SELECT UnitOfMeasureId, UnitOfMeasureCode, UnitOfMeasureExternalId FROM EcomUnitOfMeasure"), sqlCommand.Connection);
                 _existingUnitOfMeasures = dataSet.Tables[0];
             }
             return _existingUnitOfMeasures;
@@ -1811,20 +1812,35 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private void WriteUnitOfMeasure(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
+        bool didFindUnitOfMeasure = false;
         if (columnMappings.TryGetValue("UnitOfMeasureCode", out var unitOfMeasureCodeColumn))
         {
             var unitOfMeasureCodeLookupValue = GetMergedValue(unitOfMeasureCodeColumn, row);
             if (!string.IsNullOrWhiteSpace(unitOfMeasureCodeLookupValue))
             {
-
                 var unitOfMeasureIDs = new List<string>();
                 unitOfMeasureIDs = ExistingUnitOfMeasures.Select("UnitOfMeasureCode='" + unitOfMeasureCodeLookupValue + "'").Select(r => Converter.ToString(r["UnitOfMeasureId"])).ToList();
+                if (unitOfMeasureIDs.Count > 0)
+                {
+                    dataRow["UnitOfMeasureId"] = unitOfMeasureIDs[0];
+                    didFindUnitOfMeasure = true;
+                }
+            }
+        }
+        if (!didFindUnitOfMeasure && columnMappings.TryGetValue("UnitOfMeasureExternalId", out var unitOfMeasureExternalIdColumn))
+        {
+            var unitOfMeasureExternalIdLookupValue = GetMergedValue(unitOfMeasureExternalIdColumn, row);
+            if (!string.IsNullOrWhiteSpace(unitOfMeasureExternalIdLookupValue))
+            {
+                var unitOfMeasureIDs = new List<string>();
+                unitOfMeasureIDs = ExistingUnitOfMeasures.Select("UnitOfMeasureExternalId='" + unitOfMeasureExternalIdLookupValue + "'").Select(r => Converter.ToString(r["UnitOfMeasureId"])).ToList();
                 if (unitOfMeasureIDs.Count > 0)
                 {
                     dataRow["UnitOfMeasureId"] = unitOfMeasureIDs[0];
                 }
             }
         }
+
         if (!columnMappings.TryGetValue("UnitOfMeasureLanguageId", out _))
         {
             dataRow["UnitOfMeasureLanguageId"] = Ecommerce.Services.Languages.GetDefaultLanguageId();
@@ -3466,7 +3482,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             foreach (var mapping in unitOfMeasureMappings)
             {
                 EnsureMapping(mapping, DestinationColumnMappings["EcomUnitOfMeasure"], tableColumnsDictionary["EcomUnitOfMeasure"],
-                    new string[] { "UnitOfMeasureId", "UnitOfMeasureLanguageId" });
+                    new string[] { "UnitOfMeasureId", "UnitOfMeasureLanguageId", "UnitOfMeasureExternalId" });
             }
         }
     }
