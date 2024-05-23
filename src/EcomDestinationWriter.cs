@@ -351,6 +351,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationName", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationGroupId", typeof(string), SqlDbType.BigInt, -1, false, true, false);
                         break;
+                    case "EcomUnitOfMeasure":
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitOfMeasureId", typeof(string), SqlDbType.Int, -1, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitOfMeasureLanguageId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        break;
                 }                
                 if (Mappings.TryGetValue(table.Name, out List<Mapping>? tableMappings))
                 {
@@ -1074,6 +1078,20 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
+    private DataTable? _existingUnitOfMeasures;
+    private DataTable ExistingUnitOfMeasures
+    {
+        get
+        {
+            if (_existingUnitOfMeasures == null)
+            {
+                DataSet dataSet = Database.CreateDataSet(CommandBuilder.Create("SELECT UnitOfMeasureId, UnitOfMeasureCode FROM EcomUnitOfMeasure"), sqlCommand.Connection);
+                _existingUnitOfMeasures = dataSet.Tables[0];
+            }
+            return _existingUnitOfMeasures;
+        }
+    }
+
     private int _currentlyWritingMappingId = 0;
     private long _writtenRowsCount = 0;
     public void Write(Dictionary<string, object> row, Mapping mapping, bool discardDuplicates)
@@ -1180,6 +1198,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 break;
             case "EcomDiscount":
                 WriteDiscounts(row, columnMappings, dataRow);
+                break;
+            case "EcomUnitOfMeasure":
+                WriteUnitOfMeasure(row, columnMappings, dataRow);
                 break;
         }
 
@@ -1785,6 +1806,28 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     logger.Warn($"EcomPrices: Could not find any UserGroup with {userGroupIdLookupValue} as ExternalId.");
                 }
             }
+        }
+    }
+
+    private void WriteUnitOfMeasure(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
+    {
+        if (columnMappings.TryGetValue("UnitOfMeasureCode", out var unitOfMeasureCodeColumn))
+        {
+            var unitOfMeasureCodeLookupValue = GetMergedValue(unitOfMeasureCodeColumn, row);
+            if (!string.IsNullOrWhiteSpace(unitOfMeasureCodeLookupValue))
+            {
+
+                var unitOfMeasureIDs = new List<string>();
+                unitOfMeasureIDs = ExistingUnitOfMeasures.Select("UnitOfMeasureCode='" + unitOfMeasureCodeLookupValue + "'").Select(r => Converter.ToString(r["UnitOfMeasureId"])).ToList();
+                if (unitOfMeasureIDs.Count > 0)
+                {
+                    dataRow["UnitOfMeasureId"] = unitOfMeasureIDs[0];
+                }
+            }
+        }
+        if (!columnMappings.TryGetValue("UnitOfMeasureLanguageId", out _))
+        {
+            dataRow["UnitOfMeasureLanguageId"] = Ecommerce.Services.Languages.GetDefaultLanguageId();
         }
     }
 
@@ -3415,6 +3458,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 EnsureMapping(mapping, DestinationColumnMappings["EcomStockLocation"], tableColumnsDictionary["EcomStockLocation"],
                     new string[] { "StockLocationGroupId" });
+            }
+        }
+
+        if (Mappings.TryGetValue("EcomUnitOfMeasure", out List<Mapping>? unitOfMeasureMappings))
+        {
+            foreach (var mapping in unitOfMeasureMappings)
+            {
+                EnsureMapping(mapping, DestinationColumnMappings["EcomUnitOfMeasure"], tableColumnsDictionary["EcomUnitOfMeasure"],
+                    new string[] { "UnitOfMeasureId", "UnitOfMeasureLanguageId" });
             }
         }
     }
