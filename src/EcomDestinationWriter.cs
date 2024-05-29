@@ -4038,12 +4038,6 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     internal new void Close()
     {
-        //Reset Language cache
-        if (FindDataTablesStartingWithName("EcomLanguages").Count() > 0)
-        {
-            Ecommerce.Services.Languages.ClearCache();
-        }
-
         foreach (DataTable table in DataToWrite.Tables)
         {
             string tableName = GetTableNameWithoutPrefix(table.TableName) + "TempTableForBulkImport" + GetPrefixFromTableName(table.TableName);
