@@ -7,6 +7,7 @@ using Dynamicweb.Extensibility.Editors;
 using Dynamicweb.Logging;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
@@ -223,9 +224,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
     [AddInParameterGroup("Hidden")]
     public string UserKeyField { get; set; } = "";
 
-    [AddInParameter("Repositories index update")]
-    [AddInParameterEditor(typeof(DropDownParameterEditor), "multiple=true;none=true;Tooltip=Index update might affect on slower perfomance")]
-    [AddInParameterGroup("Destination")]
+    [Obsolete("Use Job.RepositoriesIndexSettings")]
     public string RepositoriesIndexUpdate { get; set; } = "";
 
     [AddInParameter("Disable cache clearing")]
@@ -377,12 +376,12 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         //set key for AccessUserTable
         if (UserKeyField != null)
         {
-            UpdateColumn(tables?.Find(t => t.Name == "AccessUser"), UserKeyField);            
+            UpdateColumn(tables?.Find(t => t.Name == "AccessUser"), UserKeyField);
         }
 
         //Set key for other tables that are missing keys in the database
         UpdateColumn(tables?.FirstOrDefault(t => t.Name == "Ecom7Tree"), "id");
-        
+
         if (tables is not null && tables.Exists(t => t.Name.Contains("Ipaper")))
         {
             UpdateIPaperTables(result);
@@ -731,7 +730,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         UpdateOnlyExistingProducts = newProvider.UpdateOnlyExistingProducts;
         UseStrictPrimaryKeyMatching = newProvider.UseStrictPrimaryKeyMatching;
         DeleteProductsAndGroupForSpecificLanguage = newProvider.DeleteProductsAndGroupForSpecificLanguage;
-        RepositoriesIndexUpdate = newProvider.RepositoriesIndexUpdate;
         UpdateOnlyExistingRecords = newProvider.UpdateOnlyExistingRecords;
         DeleteIncomingItems = newProvider.DeleteIncomingItems;
         DiscardDuplicates = newProvider.DiscardDuplicates;
@@ -767,7 +765,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         root.Add(CreateParameterNode(GetType(), "Remove missing rows after import in the destination tables only", RemoveMissingAfterImportDestinationTablesOnly.ToString()));
         root.Add(CreateParameterNode(GetType(), "Update only existing products", UpdateOnlyExistingProducts.ToString()));
         root.Add(CreateParameterNode(GetType(), "Use strict primary key matching", UseStrictPrimaryKeyMatching.ToString()));
-        root.Add(CreateParameterNode(GetType(), "Repositories index update", RepositoriesIndexUpdate));
         root.Add(CreateParameterNode(GetType(), "Update only existing records", UpdateOnlyExistingRecords.ToString()));
         root.Add(CreateParameterNode(GetType(), "Delete incoming rows", DeleteIncomingItems.ToString()));
         root.Add(CreateParameterNode(GetType(), "Discard duplicates", DiscardDuplicates.ToString()));
@@ -994,7 +991,8 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             Writer.CleanRelationsTables(sqlTransaction);
             sqlTransaction.Commit();
             Writer.RebuildAssortments();
-            UpdateProductIndex();
+            
+            MoveRepositoriesIndexToJob(job);
         }
         catch (Exception ex)
         {
@@ -1040,12 +1038,19 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         return true;
     }
 
-    protected void UpdateProductIndex()
+    private void MoveRepositoriesIndexToJob(Job job)
     {
-        if (string.IsNullOrEmpty(RepositoriesIndexUpdate))
-            return;
-
-        UpdateIndexes(RepositoriesIndexUpdate.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList());
+        if (!string.IsNullOrEmpty(RepositoriesIndexUpdate))
+        {
+            char[] separator = [','];
+            // if the provider already have RepositoriesIndexUpdate set, then we move them to the job, and set the add-in to string.empty
+            if (job.RepositoriesIndexSettings?.RepositoriesIndexes?.Count == 0)
+            {
+                job.RepositoriesIndexSettings = new RepositoriesIndexSettings(new Collection<string>([.. RepositoriesIndexUpdate.Split(separator, StringSplitOptions.RemoveEmptyEntries)]));
+            }
+            RepositoriesIndexUpdate = string.Empty;
+            job.Save();
+        }
     }
 
     public override void Close()
@@ -1066,7 +1071,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                     new("Full", "Full"),
                     new("Partial", "Partial")
                 },
-            "Repositories index update" => GetRepositoryIndexOptions(),
             _ => new List<ParameterOption>()
                 {
                     new("Name", "Name"),
