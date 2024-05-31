@@ -229,7 +229,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
     [AddInParameter("Disable cache clearing")]
     [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=This setting disables cache clearing after import\t")]
-    [AddInParameterGroup("Destination")]
+    [AddInParameterGroup("Hidden")]
     [AddInParameterOrder(90)]
     public bool DisableCacheClearing { get; set; }
 
@@ -633,12 +633,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                         InsertOnlyNewRecords = node.FirstChild?.Value == "True";
                     }
                     break;
-                case nameof(DisableCacheClearing):
-                    if (node.HasChildNodes)
-                    {
-                        DisableCacheClearing = node.FirstChild?.Value == "True";
-                    }
-                    break;
                 case "SkipFailingRows":
                     if (node.HasChildNodes)
                     {
@@ -707,7 +701,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         xmlTextWriter.WriteElementString("HideDeactivatedProducts", HideDeactivatedProducts.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("InsertOnlyNewRecords", InsertOnlyNewRecords.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("CreateMissingGoups", CreateMissingGoups.ToString(CultureInfo.CurrentCulture));
-        xmlTextWriter.WriteElementString(nameof(DisableCacheClearing), DisableCacheClearing.ToString());
         xmlTextWriter.WriteElementString(nameof(UseProductIdFoundByNumber), UseProductIdFoundByNumber.ToString());
         xmlTextWriter.WriteElementString(nameof(IgnoreEmptyCategoryFieldValues), IgnoreEmptyCategoryFieldValues.ToString());
         xmlTextWriter.WriteElementString("SkipFailingRows", SkipFailingRows.ToString(CultureInfo.CurrentCulture));
@@ -743,7 +736,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         HideDeactivatedProducts = newProvider.HideDeactivatedProducts;
         InsertOnlyNewRecords = newProvider.InsertOnlyNewRecords;
         CreateMissingGoups = newProvider.CreateMissingGoups;
-        DisableCacheClearing = newProvider.DisableCacheClearing;
         SkipFailingRows = newProvider.SkipFailingRows;
         UseProductIdFoundByNumber = newProvider.UseProductIdFoundByNumber;
         IgnoreEmptyCategoryFieldValues = newProvider.IgnoreEmptyCategoryFieldValues;
@@ -779,7 +771,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         root.Add(CreateParameterNode(GetType(), "Hide deactivated products", HideDeactivatedProducts.ToString()));
         root.Add(CreateParameterNode(GetType(), "Insert only new records", InsertOnlyNewRecords.ToString()));
         root.Add(CreateParameterNode(GetType(), "Create missing groups", CreateMissingGoups.ToString()));
-        root.Add(CreateParameterNode(GetType(), "Disable cache clearing", DisableCacheClearing.ToString()));
         root.Add(CreateParameterNode(GetType(), "Persist successful rows and skip failing rows", SkipFailingRows.ToString()));
         root.Add(CreateParameterNode(GetType(), "Use existing Product Id found by Number in Variant Products", UseProductIdFoundByNumber.ToString()));
         root.Add(CreateParameterNode(GetType(), "Ignore empty category field values", IgnoreEmptyCategoryFieldValues.ToString()));
@@ -999,16 +990,8 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             }
             Writer.CleanRelationsTables(sqlTransaction);
             sqlTransaction.Commit();
-            if (!DisableCacheClearing)
-            {
-                Ecommerce.Common.Application.KillAll();
-                Ecommerce.Services.Variants.ClearCache();
-                Writer.RebuildAssortments();
-            }
-            if (!DisableCacheClearing)
-            {
-                Ecommerce.Services.Discounts.ClearCache();
-            }
+            Writer.RebuildAssortments();
+            
             MoveRepositoriesIndexToJob(job);
         }
         catch (Exception ex)
