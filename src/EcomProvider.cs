@@ -907,8 +907,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
     public override bool RunJob(Job job)
     {
-        
-
         ReplaceMappingConditionalsWithValuesFromRequest(job);
         if (IsFirstJobRun)
         {
