@@ -256,8 +256,6 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
     /// </summary>
     public virtual bool PartialUpdate { get; set; }
 
-    private static readonly char[] separator = [','];
-
     private string? SqlConnectionString { get; set; }
 
     private SqlConnection? connection;
@@ -909,16 +907,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
     public override bool RunJob(Job job)
     {
-        if (!string.IsNullOrEmpty(RepositoriesIndexUpdate))
-        {
-            // if the provider already have RepositoriesIndexUpdate set, then we move them to the job, and set the add-in to string.empty
-            if (job.RepositoriesIndexSettings?.RepositoriesIndexes?.Count == 0)
-            {
-                job.RepositoriesIndexSettings = new RepositoriesIndexSettings(new Collection<string>([.. RepositoriesIndexUpdate.Split(separator, StringSplitOptions.RemoveEmptyEntries)]));
-            }
-            RepositoriesIndexUpdate = string.Empty;
-            job.Save();
-        }
+        
 
         ReplaceMappingConditionalsWithValuesFromRequest(job);
         if (IsFirstJobRun)
@@ -1022,6 +1011,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             {
                 Ecommerce.Services.Discounts.ClearCache();
             }
+            MoveRepositoriesIndexToJob(job);
         }
         catch (Exception ex)
         {
@@ -1065,6 +1055,21 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             IsFirstJobRun = false;
         }
         return true;
+    }
+
+    private void MoveRepositoriesIndexToJob(Job job)
+    {
+        if (!string.IsNullOrEmpty(RepositoriesIndexUpdate))
+        {
+            char[] separator = [','];
+            // if the provider already have RepositoriesIndexUpdate set, then we move them to the job, and set the add-in to string.empty
+            if (job.RepositoriesIndexSettings?.RepositoriesIndexes?.Count == 0)
+            {
+                job.RepositoriesIndexSettings = new RepositoriesIndexSettings(new Collection<string>([.. RepositoriesIndexUpdate.Split(separator, StringSplitOptions.RemoveEmptyEntries)]));
+            }
+            RepositoriesIndexUpdate = string.Empty;
+            job.Save();
+        }
     }
 
     public override void Close()
