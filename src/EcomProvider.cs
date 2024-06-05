@@ -957,7 +957,8 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                         while (!reader.IsDone())
                         {
                             sourceRow = reader.GetNext();
-                            ProcessInputRow(mapping, sourceRow);
+                            if (!ProcessInputRow(sourceRow, mapping))
+                                continue;
                             Writer.Write(sourceRow, mapping, discardDuplicates);
                         }
                         Writer.ReportProgress(mapping);
