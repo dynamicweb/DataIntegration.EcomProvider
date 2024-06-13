@@ -303,7 +303,8 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             "EcomProducts", "EcomManufacturers", "EcomGroups", "EcomVariantGroups", "EcomVariantsOptions",
             "EcomProductsRelated", "EcomProductItems", "EcomStockUnit", "EcomDetails","EcomProductCategoryFieldValue", "EcomLanguages", "EcomPrices",
             "EcomAssortmentGroupRelations", "EcomAssortmentPermissions", "EcomAssortmentProductRelations", "EcomAssortments", "EcomAssortmentShopRelations",
-            "EcomVariantOptionsProductRelation", "EcomCurrencies", "EcomCountries", "EcomStockLocation", "EcomDiscount"
+            "EcomVariantOptionsProductRelation", "EcomCurrencies", "EcomCountries", "EcomStockLocation", "EcomDiscount",
+            "EcomUnits", "EcomUnitTranslations"
         };
         List<Table> tablesToRemove = new();
         foreach (Table table in result.GetTables())
@@ -878,6 +879,14 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             tables.AddRange(mappings);
 
         mappings = GetMappingsByName(job.Mappings, "EcomVariantOptionsProductRelation", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomUnits", isSource);
+        if (mappings != null)
+            tables.AddRange(mappings);
+
+        mappings = GetMappingsByName(job.Mappings, "EcomUnitTranslations", isSource);
         if (mappings != null)
             tables.AddRange(mappings);
 
