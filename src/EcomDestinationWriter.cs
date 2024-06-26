@@ -351,6 +351,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationName", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
                         EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationGroupId", typeof(string), SqlDbType.BigInt, -1, false, true, false);
                         break;
+                    case "EcomUnits":
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitExternalId", typeof(string), SqlDbType.NVarChar, 50, false, false, false);
+                        break;
+                    case "EcomUnitTranslations":
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitTranslationUnitId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitTranslationLanguageId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitTranslationName", typeof(string), SqlDbType.NVarChar, 50, false, false, false);
+                        break;
                 }                
                 if (Mappings.TryGetValue(table.Name, out List<Mapping>? tableMappings))
                 {
@@ -1074,6 +1083,34 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
+    private DataTable? _existingUnits;
+    private DataTable ExistingUnits
+    {
+        get
+        {
+            if (_existingUnits == null)
+            {
+                DataSet dataSet = Database.CreateDataSet(CommandBuilder.Create("SELECT UnitId, UnitExternalId FROM EcomUnits"), sqlCommand.Connection);
+                _existingUnits = dataSet.Tables[0];
+            }
+            return _existingUnits;
+        }
+    }
+
+    private DataTable? _existingUnitTranslations;
+    private DataTable ExistingUnitTranslations
+    {
+        get
+        {
+            if (_existingUnitTranslations == null)
+            {
+                DataSet dataSet = Database.CreateDataSet(CommandBuilder.Create("SELECT UnitTranslationUnitId, UnitTranslationLanguageId, UnitTranslationName FROM EcomUnitTranslations"), sqlCommand.Connection);
+                _existingUnitTranslations = dataSet.Tables[0];
+            }
+            return _existingUnitTranslations;
+        }
+    }
+
     private int _currentlyWritingMappingId = 0;
     private long _writtenRowsCount = 0;
     public void Write(Dictionary<string, object> row, Mapping mapping, bool discardDuplicates)
@@ -1180,6 +1217,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 break;
             case "EcomDiscount":
                 WriteDiscounts(row, columnMappings, dataRow);
+                break;
+            case "EcomUnits":
+                WriteUnits(row, columnMappings, dataRow);
+                break;
+            case "EcomUnitTranslations":
+                WriteUnitTranslations(row, columnMappings, dataRow);
                 break;
         }
 
@@ -1850,6 +1893,61 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 row[discountCurrencyColumn.SourceColumn.Name] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
             }
+        }
+    }
+
+    private void WriteUnits(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
+    {
+        bool didFindUnit = false;
+        if (columnMappings.TryGetValue("UnitId", out var unitIdColumn))
+        {
+            var unitIdLookupValue = GetMergedValue(unitIdColumn, row);
+            if (!string.IsNullOrWhiteSpace(unitIdLookupValue))
+            {
+                var unitIDs = new List<string>();
+                unitIDs = ExistingUnits.Select("UnitId='" + unitIdLookupValue + "'").Select(r => Converter.ToString(r["UnitId"])).ToList();
+                if (unitIDs.Count > 0)
+                {
+                    dataRow["UnitId"] = unitIDs[0];
+                    didFindUnit = true;
+                }
+            }
+        }
+        if (!didFindUnit && columnMappings.TryGetValue("UnitExternalId", out var unitExternalIdColumn))
+        {
+            var unitExternalIdLookupValue = GetMergedValue(unitExternalIdColumn, row);
+            if (!string.IsNullOrWhiteSpace(unitExternalIdLookupValue))
+            {
+                var unitIDs = new List<string>();
+                unitIDs = ExistingUnits.Select("UnitExternalId='" + unitExternalIdLookupValue + "'").Select(r => Converter.ToString(r["UnitExternalId"])).ToList();
+                if (unitIDs.Count > 0)
+                {
+                    dataRow["UnitExternalId"] = unitIDs[0];
+                }
+            }
+        }
+    }
+
+
+    private void WriteUnitTranslations(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
+    {
+        if (columnMappings.TryGetValue("UnitTranslationUnitId", out var unitTranslationUnitIdColumn))
+        {
+            var unitTranslationUnitIdLookupValue = GetMergedValue(unitTranslationUnitIdColumn, row);
+            if (!string.IsNullOrWhiteSpace(unitTranslationUnitIdLookupValue))
+            {
+                var unitTranslationUnitIDs = new List<string>();
+                unitTranslationUnitIDs = ExistingUnitTranslations.Select("UnitTranslationUnitId='" + unitTranslationUnitIdLookupValue + "'").Select(r => Converter.ToString(r["UnitTranslationUnitId"])).ToList();
+                if (unitTranslationUnitIDs.Count > 0)
+                {
+                    dataRow["UnitTranslationUnitId"] = unitTranslationUnitIDs[0];
+                }
+            }
+        }
+
+        if (!columnMappings.TryGetValue("UnitTranslationLanguageId", out _))
+        {
+            dataRow["UnitTranslationLanguageId"] = _defaultLanguageId;
         }
     }
 
@@ -3415,6 +3513,26 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 EnsureMapping(mapping, DestinationColumnMappings["EcomStockLocation"], tableColumnsDictionary["EcomStockLocation"],
                     new string[] { "StockLocationGroupId" });
+            }
+        }
+
+
+        if (Mappings.TryGetValue("EcomUnits", out List<Mapping>? unitMappings))
+        {
+            foreach (var mapping in unitMappings)
+            {
+                EnsureMapping(mapping, DestinationColumnMappings["EcomUnits"], tableColumnsDictionary["EcomUnits"],
+                    new string[] { "UnitId", "UnitExternalId" });
+            }
+        }
+
+
+        if (Mappings.TryGetValue("EcomUnitTranslations", out List<Mapping>? unitTranslationMappings))
+        {
+            foreach (var mapping in unitTranslationMappings)
+            {
+                EnsureMapping(mapping, DestinationColumnMappings["EcomUnitTranslations"], tableColumnsDictionary["EcomUnitTranslations"],
+                    new string[] { "UnitTranslationUnitId", "UnitTranslationLanguageId", "UnitTranslationName" });
             }
         }
     }
