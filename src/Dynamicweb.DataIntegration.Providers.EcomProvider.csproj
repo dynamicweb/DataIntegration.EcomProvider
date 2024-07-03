@@ -24,8 +24,8 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="Dynamicweb.DataIntegration" Version="10.6.2" />
-		<PackageReference Include="Dynamicweb.Ecommerce" Version="10.6.2" />
+		<PackageReference Include="Dynamicweb.DataIntegration" Version="10.6.3" />
+		<PackageReference Include="Dynamicweb.Ecommerce" Version="10.6.3" />
 		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
 	</ItemGroup>
 </Project>

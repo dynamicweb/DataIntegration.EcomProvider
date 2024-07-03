@@ -1002,6 +1002,8 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             Writer.CleanRelationsTables(sqlTransaction);
             sqlTransaction.Commit();
             Writer.RebuildAssortments();
+
+            TotalRowsAffected += Writer.RowsAffected;
             
             MoveRepositoriesIndexToJob(job);
         }
@@ -1036,6 +1038,9 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
 
             if (sqlTransaction != null)
                 sqlTransaction.Rollback();
+
+            TotalRowsAffected = 0;
+
             return false;
         }
         finally
