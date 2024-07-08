@@ -2814,15 +2814,20 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         if (ProductCategoryFields.ContainsKey($"{categoryId}|{fieldId}"))
         {
-            var categoryFieldValue = GetDataTableNewRow("EcomProductCategoryFieldValue");
-            categoryFieldValue["FieldValueFieldId"] = fieldId;
-            categoryFieldValue["FieldValueFieldCategoryId"] = categoryId;
-            categoryFieldValue["FieldValueProductId"] = productID;
-            categoryFieldValue["FieldValueProductVariantId"] = productVariantId;
-            categoryFieldValue["FieldValueProductLanguageId"] = languageID;
-            categoryFieldValue["FieldValueValue"] = value;
+            var separator = "_;_";
+            var key = $"{fieldId}{separator}{categoryId}{separator}{productID}{separator}{productVariantId}{separator}{languageID}";
+            if (!DataRowsToWrite["EcomProductCategoryFieldValue"].ContainsKey(key))
+            {
+                var categoryFieldValue = GetDataTableNewRow("EcomProductCategoryFieldValue");
+                categoryFieldValue["FieldValueFieldId"] = fieldId;
+                categoryFieldValue["FieldValueFieldCategoryId"] = categoryId;
+                categoryFieldValue["FieldValueProductId"] = productID;
+                categoryFieldValue["FieldValueProductVariantId"] = productVariantId;
+                categoryFieldValue["FieldValueProductLanguageId"] = languageID;
+                categoryFieldValue["FieldValueValue"] = value;
 
-            DataRowsToWrite["EcomProductCategoryFieldValue"].Add(RowAutoId++.ToString(), new List<DataRow>() { categoryFieldValue });
+                DataRowsToWrite["EcomProductCategoryFieldValue"].Add(key, new List<DataRow>() { categoryFieldValue });
+            }
         }
         else
         {
