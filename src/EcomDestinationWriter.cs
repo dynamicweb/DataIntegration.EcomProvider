@@ -1055,6 +1055,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         }
     }
+
     private DataTable? _existingUserGroups;
     private DataTable ExistingUserGroups
     {
@@ -1113,6 +1114,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private int _currentlyWritingMappingId = 0;
     private long _writtenRowsCount = 0;
+
     public void Write(Dictionary<string, object> row, Mapping mapping, bool discardDuplicates)
     {        
         DataRow? dataRow = DataToWrite.Tables[GetTableName(mapping.DestinationTable.Name, mapping)]?.NewRow();
@@ -1753,7 +1755,6 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-
     private void WritePrices(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
         ColumnMapping? priceIdColumn = null;
@@ -1927,7 +1928,6 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
     }
-
 
     private void WriteUnitTranslations(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
@@ -3077,7 +3077,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     string extraConditions = GetDeleteFromSpecificLanguageExtraCondition(mapping, tempTablePrefix, languageId);
                     var rowsAffected = DeleteExcessFromMainTable(sqlCommand, mapping, extraConditions, tempTablePrefix, removeMissingAfterImportDestinationTablesOnly);
                     if (rowsAffected > 0)
+                    {
                         logger.Log($"The number of deleted rows: {rowsAffected} for the destination {mapping.DestinationTable.Name} table mapping");
+                        RowsAffected += (int)rowsAffected;
+                    }
                 }
                 else if (!(mapping.DestinationTable.Name == "EcomGroups" && !_removeFromEcomGroups) && !(mapping.DestinationTable.Name == "EcomVariantGroups" && !_removeFromEcomVariantGroups))
                 {
@@ -3091,13 +3094,19 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     {
                         var rowsAffected = DeactivateMissingProductsInMainTable(mapping, sqlCommand, shop, _defaultLanguageId, hideDeactivatedProducts);
                         if (rowsAffected > 0)
+                        { 
                             logger.Log($"The number of the deactivated product rows: {rowsAffected}");
+                            RowsAffected += rowsAffected;
+                        }
                     }
                     else if (removeMissingAfterImport || removeMissingAfterImportDestinationTablesOnly)
                     {
                         var rowsAffected = DeleteExcessFromMainTable(sqlCommand, mapping, GetExtraConditions(mapping, shop, null), tempTablePrefix, removeMissingAfterImportDestinationTablesOnly);
                         if (rowsAffected > 0)
+                        { 
                             logger.Log($"The number of deleted rows: {rowsAffected} for the destination {mapping.DestinationTable.Name} table mapping");
+                            RowsAffected += (int)rowsAffected;
+                        }
                     }
                 }
             }
@@ -3114,10 +3123,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 var rowsAffected = DeleteExistingFromMainTable(sqlCommand, mapping, GetExtraConditions(mapping, shop, languageId), tempTablePrefix);
                 if (rowsAffected > 0)
+                {
                     logger.Log($"The number of deleted rows: {rowsAffected} for the destination {mapping.DestinationTable.Name} table mapping");
+                    RowsAffected += rowsAffected;
+                }
             }
         }
     }
+
     internal static string GetDeleteFromSpecificLanguageExtraCondition(Mapping mapping, string tempTablePrefix, string languageId)
     {
         string ret = string.Empty;
@@ -3311,6 +3324,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 logger.Log($"The number of rows affected: {rowsAffected} in the {mapping.DestinationTable.Name} table");
             }
+            RowsAffected += rowsAffected;
         }
         catch (Exception ex)
         {
@@ -4258,7 +4272,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         try
         {
-            sqlCommand.ExecuteNonQuery();
+            RowsAffected += sqlCommand.ExecuteNonQuery();
         }
         catch (Exception ex)
         {
@@ -4306,7 +4320,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (sqlClean != null && sqlClean.Length > 0)
             {
                 sqlCommand.CommandText = sqlClean.ToString();
-                sqlCommand.ExecuteNonQuery();
+                RowsAffected += sqlCommand.ExecuteNonQuery();
             }
         }
         catch (Exception ex)
@@ -4486,6 +4500,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             ProductVariantGroupsCountDictionary[productID] = 1;
         }
     }
+
     internal void UpdateGroupRelations()
     {
         bool isGroupIdInMapping = job.Mappings.Any(m => m?.DestinationTable?.Name == "EcomGroups" && m.GetColumnMappings().Any(cm => cm.Active && string.Equals(cm?.DestinationColumn.Name, "GroupId", StringComparison.OrdinalIgnoreCase)));
