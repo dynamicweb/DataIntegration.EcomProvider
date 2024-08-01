@@ -1794,7 +1794,6 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 if (userIDs.Count > 0)
                 {
                     dataRow["PriceUserGroupId"] = userIDs[0];
-                    row[priceAccessUserGroupColumn.SourceColumn.Name] = userIDs[0];
                     foundMatchingGroup = true;
                     if (userIDs.Count > 1)
                     {
@@ -1829,7 +1828,6 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     if (userIDs.Count > 0)
                     {
                         dataRow["PriceUserId"] = userIDs[0];
-                        row[priceAccessUserColumn.SourceColumn.Name] = userIDs[0];
                         if (userIDs.Count > 1)
                         {
                             logger.Warn($"EcomPrices: Found multiple Users with AccessUserExternalId={userIdLookupValue} using the first one with userId = {userIDs[0]}.");
@@ -1856,7 +1854,6 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 if (userIDs.Count > 0)
                 {
                     dataRow["DiscountAccessUserGroupId"] = userIDs[0];
-                    row[discountAccessUserGroupColumn.SourceColumn.Name] = userIDs[0];
                     foundMatchingGroup = true;
                     if (userIDs.Count > 1)
                     {
@@ -1886,7 +1883,6 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     if (userIDs.Count > 0)
                     {
                         dataRow["DiscountAccessUserId"] = userIDs[0];
-                        row[discountAccessUserColumn.SourceColumn.Name] = userIDs[0];
                         if (userIDs.Count > 1)
                         {
                             logger.Warn($"Ecom Discounts: Found multiple Users with AccessUserExternalId={userIdLookupValue} using the first one with userId = {userIDs[0]}.");
