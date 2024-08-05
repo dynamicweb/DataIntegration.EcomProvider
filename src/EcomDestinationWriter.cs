@@ -1165,7 +1165,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     {
                         logger.Error($"The SourceColumn is null for the table mapping {mapping.SourceTable?.Name} to {mapping.DestinationTable?.Name} on DestinationColumn {columnMapping.DestinationColumn?.Name}");
                     }
-                    throw new Exception(GetRowValueNotFoundMessage(row, columnMapping.SourceColumn?.Table.Name, columnMapping.SourceColumn?.Name));
+                    throw new Exception(GetRowValueNotFoundMessage(row, columnMapping.SourceColumn?.Table?.Name ?? columnMapping.DestinationColumn?.Table?.Name, 
+                        columnMapping.SourceColumn?.Name ?? columnMapping.DestinationColumn?.Name));
                 }
             }
         }
@@ -1447,6 +1448,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (!string.IsNullOrEmpty(manufacturer))
             {
                 DataRow? manufacturerRow = null;
+                string id;
                 ProductManufacturers.TryGetValue(manufacturer, out manufacturerRow);
                 if (manufacturerRow == null)
                 {
@@ -1454,20 +1456,21 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 }
                 if (manufacturerRow != null)
                 {
-                    row[columnMapping.SourceColumn.Name] = manufacturerRow["ManufacturerID"];
+                    id = Converter.ToString(manufacturerRow["ManufacturerID"]);
                 }
                 else
                 {
                     manufacturerRow = FindRow("EcomManufacturers", manufacturer, dataRow.Table.Columns.Contains("ManufacturerName") ? new Func<DataRow, bool>(r => r["ManufacturerName"].ToString() == manufacturer) : null);
                     if (manufacturerRow != null)
                     {
-                        row[columnMapping.SourceColumn.Name] = manufacturerRow["ManufacturerID"];
+                        id = Converter.ToString(manufacturerRow["ManufacturerID"]);
                     }
                     else
                     {
                         DataRow newManufacturer = GetDataTableNewRow("EcomManufacturers");
                         LastManufacturerId = LastManufacturerId + 1;
-                        newManufacturer["ManufacturerID"] = "ImportedMANU" + LastManufacturerId;
+                        id = "ImportedMANU" + LastManufacturerId;
+                        newManufacturer["ManufacturerID"] = id;
                         newManufacturer["ManufacturerName"] = manufacturer;
                         Dictionary<string, List<DataRow>>? manufacturers = null;
                         if (!DataRowsToWrite.TryGetValue(newManufacturer.Table.TableName, out manufacturers))
@@ -1476,10 +1479,12 @@ internal class EcomDestinationWriter : BaseSqlWriter
                             DataRowsToWrite.Add("EcomManufacturers", manufacturers);
                         }
                         manufacturers.Add("ImportedMANU" + LastManufacturerId, new List<DataRow>() { newManufacturer });
-                        row[columnMapping.SourceColumn.Name] = newManufacturer["ManufacturerID"];
                     }
                 }
-                dataRow[columnMapping.DestinationColumn.Name] = row[columnMapping.SourceColumn.Name];
+
+                dataRow[columnMapping.DestinationColumn.Name] = id;
+                if (columnMapping.SourceColumn is not null)
+                    row[columnMapping.SourceColumn.Name] = id;
             }
         }
     }
@@ -1622,7 +1627,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         ColumnMapping? column = null;
         columnMappings.TryGetValue("ProductLanguageID", out column);
         string productLanguageID = _defaultLanguageId;
-        if (column != null && column.SourceColumn != null && column.Active && column.ScriptType != ScriptType.Constant && !string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
+        if (column != null && column.Active && !column.HasScriptWithValue && column.SourceColumn != null && !string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
         {
             productLanguageID = GetLanguageID(row[column.SourceColumn.Name].ToString());
             row[column.SourceColumn.Name] = productLanguageID;
@@ -1630,7 +1635,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         else
         {
             dataRow["ProductLanguageID"] = productLanguageID;
-            if (column != null && column.ScriptType != ScriptType.Constant && column.SourceColumn != null)
+            if (column?.SourceColumn != null)
             {
                 row[column.SourceColumn.Name] = productLanguageID;
             }
@@ -1642,13 +1647,13 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private string HandleProductId(Dictionary<string, object> row, Mapping mapping, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow, ref DataRow? existingProductRow, string productLanguageId)
     {
         string productID;
-        ColumnMapping? column = null;
-        columnMappings.TryGetValue("ProductID", out column);
+        ColumnMapping? productIdColumn = null;
+        columnMappings.TryGetValue("ProductID", out productIdColumn);
         ColumnMapping? productNumberColumn = null;
         columnMappings.TryGetValue("ProductNumber", out productNumberColumn);
         ColumnMapping? productNameColumn = null;
         columnMappings.TryGetValue("ProductName", out productNameColumn);
-        if (column == null)
+        if (productIdColumn == null)
         {
             existingProductRow = GetExistingProduct(row, mapping, productNumberColumn, productNameColumn);
             if (existingProductRow == null)//if product is not found by number or name, return new generated ProductID                            
@@ -1663,27 +1668,28 @@ internal class EcomDestinationWriter : BaseSqlWriter
             dataRow["ProductID"] = productID;
             row["ProductID"] = productID;
         }
-        else if (string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
-        {
-            existingProductRow = GetExistingProduct(row, mapping, productNumberColumn, productNameColumn);
-            if (existingProductRow == null)//if product is not found by number or name, return new generated ProductID                            
-            {
-                LastProductId = LastProductId + 1;
-                productID = "ImportedPROD" + LastProductId;
-            }
-            else
-            {
-                productID = existingProductRow["ProductID"].ToString() ?? "";
-            }
-            row[column.SourceColumn.Name] = productID;
-        }
         else
         {
-            productID = row[column.SourceColumn.Name].ToString() ?? "";
+            productID = GetValue(productIdColumn, row) ?? "";
+            if (string.IsNullOrEmpty(productID))
+            {
+                existingProductRow = GetExistingProduct(row, mapping, productNumberColumn, productNameColumn);
+                if (existingProductRow == null)//if product is not found by number or name, return new generated ProductID                            
+                {
+                    LastProductId = LastProductId + 1;
+                    productID = "ImportedPROD" + LastProductId;
+                }
+                else
+                {
+                    productID = existingProductRow["ProductID"].ToString() ?? "";
+                }
+                if (productIdColumn.SourceColumn is not null)
+                    row[productIdColumn.SourceColumn.Name] = productID;
+            }
         }
         if (productNumberColumn != null)
         {
-            string? productNumber = row[productNumberColumn.SourceColumn.Name].ToString();
+            string? productNumber = GetValue(productNumberColumn, row);
             if (!string.IsNullOrEmpty(productNumber))
             {
                 if (!ImportedProductsByNumber.ContainsKey(productNumber))
@@ -1706,43 +1712,46 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private bool WriteAssortments(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
         ColumnMapping? assortmentIdColumn = null;
-        if (columnMappings.TryGetValue("AssortmentPermissionAssortmentID", out assortmentIdColumn) && row[assortmentIdColumn.SourceColumn.Name] != DBNull.Value && !string.IsNullOrEmpty(Converter.ToString(row[assortmentIdColumn.SourceColumn.Name])))
+        if (columnMappings.TryGetValue("AssortmentPermissionAssortmentID", out assortmentIdColumn))
         {
-            string assortmentID = Converter.ToString(row[assortmentIdColumn.SourceColumn.Name]);
-            List<string> userIDs = new List<string>();
-            ColumnMapping? assortmentCustomerNumberColumn = null;
-            if (columnMappings.TryGetValue("AssortmentPermissionCustomerNumber", out assortmentCustomerNumberColumn) && assortmentCustomerNumberColumn.Active && row[assortmentCustomerNumberColumn.SourceColumn.Name] != System.DBNull.Value)
+            string? assortmentID = GetValue(assortmentIdColumn, row);
+            if (!string.IsNullOrEmpty(assortmentID))
             {
-                string? userNumber = row[assortmentCustomerNumberColumn.SourceColumn.Name].ToString();
-                if (!string.IsNullOrEmpty(userNumber))
+                List<string> userIDs = new List<string>();
+                ColumnMapping? assortmentCustomerNumberColumn = null;
+                if (columnMappings.TryGetValue("AssortmentPermissionCustomerNumber", out assortmentCustomerNumberColumn) && assortmentCustomerNumberColumn.Active)
                 {
-                    userIDs = ExistingUsers.Select("AccessUserCustomerNumber='" + userNumber.Replace("'", "''") + "'").Select(r => Converter.ToString(r["AccessUserID"])).ToList();
+                    string? userNumber = GetValue(assortmentCustomerNumberColumn, row);
+                    if (!string.IsNullOrEmpty(userNumber))
+                    {
+                        userIDs = ExistingUsers.Select("AccessUserCustomerNumber='" + userNumber.Replace("'", "''") + "'").Select(r => Converter.ToString(r["AccessUserID"])).ToList();
+                    }
                 }
-            }
-            ColumnMapping? externalIdmapping = null;
-            if (columnMappings.TryGetValue("AssortmentPermissionExternalID", out externalIdmapping) && externalIdmapping.Active && row[externalIdmapping.SourceColumn.Name] != DBNull.Value)
-            {
-                string? externalId = row[externalIdmapping.SourceColumn.Name].ToString();
-                if (!string.IsNullOrEmpty(externalId))
+                ColumnMapping? externalIdmapping = null;
+                if (columnMappings.TryGetValue("AssortmentPermissionExternalID", out externalIdmapping) && externalIdmapping.Active)
                 {
-                    userIDs.AddRange(ExistingUsers.Select("AccessUserExternalID='" + externalId.Replace("'", "''") + "'").Select(r => Converter.ToString(r["AccessUserID"])));
+                    string? externalId = GetValue(externalIdmapping, row);
+                    if (!string.IsNullOrEmpty(externalId))
+                    {
+                        userIDs.AddRange(ExistingUsers.Select("AccessUserExternalID='" + externalId.Replace("'", "''") + "'").Select(r => Converter.ToString(r["AccessUserID"])));
+                    }
                 }
-            }
-            ColumnMapping? userIdMapping = null;
-            if (columnMappings.TryGetValue("AssortmentPermissionAccessUserID", out userIdMapping) && userIdMapping.Active && row[userIdMapping.SourceColumn.Name] != DBNull.Value)
-            {
-                string? id = row[userIdMapping.SourceColumn.Name].ToString();
-                if (!string.IsNullOrEmpty(id))
+                ColumnMapping? userIdMapping = null;
+                if (columnMappings.TryGetValue("AssortmentPermissionAccessUserID", out userIdMapping) && userIdMapping.Active)
                 {
-                    userIDs.AddRange(ExistingUsers.Select("AccessUserID='" + id.Replace("'", "''") + "'").Select(r => Converter.ToString(r["AccessUserID"])));
+                    string? id = GetValue(userIdMapping, row);
+                    if (!string.IsNullOrEmpty(id))
+                    {
+                        userIDs.AddRange(ExistingUsers.Select("AccessUserID='" + id.Replace("'", "''") + "'").Select(r => Converter.ToString(r["AccessUserID"])));
+                    }
                 }
+                foreach (string userID in userIDs.Distinct())
+                {
+                    dataRow["AssortmentPermissionAssortmentID"] = assortmentID;
+                    dataRow["AssortmentPermissionAccessUserID"] = userID;
+                }
+                return false;
             }
-            foreach (string userID in userIDs.Distinct())
-            {
-                dataRow["AssortmentPermissionAssortmentID"] = assortmentID;
-                dataRow["AssortmentPermissionAccessUserID"] = userID;
-            }
-            return false;
         }
         return true;
     }
@@ -1750,7 +1759,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private void WriteDetails(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
     {
         ColumnMapping? detailIdColumn = null;
-        if (!columnMappings.TryGetValue("DetailID", out detailIdColumn) || string.IsNullOrEmpty(Converter.ToString(row[detailIdColumn.SourceColumn.Name])))
+        if (!columnMappings.TryGetValue("DetailID", out detailIdColumn) || string.IsNullOrEmpty(GetValue(detailIdColumn, row)))
         {
             LastDetailId = LastDetailId + 1;
             dataRow["DetailID"] = "ImportedDETAIL" + LastDetailId;
@@ -1773,7 +1782,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         else
         {
             var priceCurrencyValue = GetMergedValue(priceCurrencyColumn, row);
-            if (string.IsNullOrWhiteSpace(priceCurrencyValue))
+            if (string.IsNullOrWhiteSpace(priceCurrencyValue) && priceCurrencyColumn.SourceColumn is not null)
             {
                 row[priceCurrencyColumn.SourceColumn.Name] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
             }
@@ -1903,7 +1912,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         else
         {
             var discountCurrencyValue = GetMergedValue(discountCurrencyColumn, row);
-            if (string.IsNullOrWhiteSpace(discountCurrencyValue))
+            if (string.IsNullOrWhiteSpace(discountCurrencyValue) && discountCurrencyColumn.SourceColumn is not null)
             {
                 row[discountCurrencyColumn.SourceColumn.Name] = Ecommerce.Services.Currencies.GetDefaultCurrency().Code;
             }
@@ -1968,9 +1977,13 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         string relatedGroupLanguage = _defaultLanguageId;
         ColumnMapping? productRelatedLanguageIdColumn = null;
-        if (columnMappings.TryGetValue("ProductRelatedLanguageID", out productRelatedLanguageIdColumn) && !string.IsNullOrEmpty(Converter.ToString(row[productRelatedLanguageIdColumn.SourceColumn.Name])))
+        if (columnMappings.TryGetValue("ProductRelatedLanguageID", out productRelatedLanguageIdColumn))
         {
-            relatedGroupLanguage = GetLanguageID(Converter.ToString(row[productRelatedLanguageIdColumn.SourceColumn.Name]));
+            var value = GetValue(productRelatedLanguageIdColumn, row);
+            if (!string.IsNullOrEmpty(value))
+            {
+                relatedGroupLanguage = GetLanguageID(value);
+            }
         }
 
         string? relatedGroupID = null;
@@ -1978,7 +1991,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         ColumnMapping? productRelatedGroupIdMapping = null;
         if (columnMappings.TryGetValue("ProductRelatedGroupID", out productRelatedGroupIdMapping))
         {
-            if (productRelatedGroupIdMapping.ScriptType == ScriptType.Constant)
+            if (productRelatedGroupIdMapping.HasScriptWithValue)
             {
                 relatedGroupID = productRelatedGroupIdMapping.ScriptValue;
                 relatedGroupIdIsConstant = true;
@@ -2036,7 +2049,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         string groupLanguageID = _defaultLanguageId;
         ColumnMapping? groupLanguageColumn = null;
-        if (columnMappings.TryGetValue("GroupLanguageID", out groupLanguageColumn) && groupLanguageColumn.ScriptType != ScriptType.Constant && !string.IsNullOrEmpty(Converter.ToString(row[groupLanguageColumn.SourceColumn.Name])))
+        if (columnMappings.TryGetValue("GroupLanguageID", out groupLanguageColumn) && !groupLanguageColumn.HasScriptWithValue && !string.IsNullOrEmpty(Converter.ToString(row[groupLanguageColumn.SourceColumn.Name])))
         {
             groupLanguageID = GetLanguageID(row[groupLanguageColumn.SourceColumn.Name].ToString());
             row[groupLanguageColumn.SourceColumn.Name] = groupLanguageID;
@@ -2089,7 +2102,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            bool useShopValueFromConstant = groupShopsColumn.ScriptType == ScriptType.Constant && !string.IsNullOrEmpty(groupShopsColumn.ScriptValue);
+            bool useShopValueFromConstant = groupShopsColumn.HasScriptWithValue && !string.IsNullOrEmpty(groupShopsColumn.ScriptValue);
 
             if (!useShopValueFromConstant && string.IsNullOrEmpty(Converter.ToString(row[groupShopsColumn.SourceColumn.Name])))
             {
@@ -2161,8 +2174,8 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 mapping.AddMapping(mapping.SourceTable.Columns.FirstOrDefault(), mapping.DestinationTable.Columns.Where(obj => obj.Name.Equals("StockUnitId", StringComparison.OrdinalIgnoreCase)).FirstOrDefault());
 
-                var productID = row[stockUnitProductIDColumn.SourceColumn.Name].ToString();
-                var variantID = row[stockUnitVariantIDColumn.SourceColumn.Name].ToString();
+                var productID = GetValue(stockUnitProductIDColumn, row);
+                var variantID = GetValue(stockUnitVariantIDColumn, row);
                 if (string.Equals(productID, variantID, StringComparison.OrdinalIgnoreCase))
                 {
                     variantID = string.Empty;
@@ -2251,7 +2264,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 dataRow["ManufacturerID"] = "ImportedMANU" + LastManufacturerId;
             }
         }
-        else if (string.IsNullOrEmpty(Converter.ToString(row[manufacturerColumn.SourceColumn.Name])))
+        else if (string.IsNullOrEmpty(GetValue(manufacturerColumn, row)))
         {
             DataRow? existingManufacturer = GetExistingManufacturer(row, manufacturerNameColumn);
             if (existingManufacturer != null)
@@ -2357,10 +2370,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
             LastVariantOptionId = LastVariantOptionId + 1;
             dataRow["VariantOptionID"] = "ImportedVO" + LastVariantOptionId;
         }
-        else if (string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
+        else
         {
-            LastVariantOptionId = LastVariantOptionId + 1;
-            row["VariantOptionID"] = "ImportedVO" + LastVariantOptionId;
+            var value = GetValue(column, row);
+            if (string.IsNullOrEmpty(value))
+            {
+                LastVariantOptionId = LastVariantOptionId + 1;
+                row["VariantOptionID"] = "ImportedVO" + LastVariantOptionId;
+            }
         }
     }
 
@@ -2374,11 +2391,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            if (string.IsNullOrEmpty(Converter.ToString(row[variantGroupColumn.SourceColumn.Name])))
+            var value = GetValue(variantGroupColumn, row);
+            if (string.IsNullOrEmpty(value))
             {
                 LastVariantGroupId = LastVariantGroupId + 1;
                 dataRow["VariantGroupID"] = "ImportedVARGRP" + LastVariantGroupId;
-                row[variantGroupColumn.SourceColumn.Name] = "ImportedVARGRP" + LastVariantGroupId;
+                if (variantGroupColumn.SourceColumn is not null)
+                {
+                    row[variantGroupColumn.SourceColumn.Name] = "ImportedVARGRP" + LastVariantGroupId;
+                }
             }
         }
 
@@ -2391,7 +2412,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
             {
                 variantGroupLanguageID = GetLanguageID(id);
             }
-            row[variantGroupLanguageColumn.SourceColumn.Name] = variantGroupLanguageID;
+            if (variantGroupLanguageColumn.SourceColumn is not null)
+            {
+                row[variantGroupLanguageColumn.SourceColumn.Name] = variantGroupLanguageID;
+            }
         }
         else
         {
@@ -2406,14 +2430,14 @@ internal class EcomDestinationWriter : BaseSqlWriter
         ColumnMapping? fieldIdColumn = null;
         ColumnMapping? fieldCategoryIdColumn = null;
         if (columnMappings.TryGetValue("FieldValueFieldId", out fieldIdColumn) &&
-            (!columnMappings.TryGetValue("FieldValueFieldCategoryId", out fieldCategoryIdColumn) || string.IsNullOrEmpty(row[fieldCategoryIdColumn.SourceColumn.Name].ToString())))
+            (!columnMappings.TryGetValue("FieldValueFieldCategoryId", out fieldCategoryIdColumn) || string.IsNullOrEmpty(GetValue(fieldCategoryIdColumn, row))))
         {
             var existingCategoryField = Ecommerce.Services.ProductCategories.GetCategories().SelectMany(c => Ecommerce.Services.ProductCategories.GetFieldsByCategoryId(c.Id)).FirstOrDefault(
-                field => string.Compare(field.Id, row[fieldIdColumn.SourceColumn.Name].ToString(), true) == 0);
+                field => string.Compare(field.Id, GetValue(fieldIdColumn, row), true) == 0);
             if (existingCategoryField != null)
             {
                 dataRow["FieldValueFieldCategoryId"] = existingCategoryField.Category != null ? existingCategoryField.Category.Id : "";
-                if (fieldCategoryIdColumn != null)
+                if (fieldCategoryIdColumn?.SourceColumn != null)
                 {
                     row[fieldCategoryIdColumn.SourceColumn.Name] = dataRow["FieldValueFieldCategoryId"];
                 }
@@ -2431,23 +2455,23 @@ internal class EcomDestinationWriter : BaseSqlWriter
         if (!columnMappings.TryGetValue("FieldValueProductId", out fieldProductIdColumn) && columnMappings.TryGetValue("FieldValueProductNumber", out fieldProductNumberColumn))
         {
             //find id from productnumber, variantID and Language if available
-            var productNumber = Converter.ToString(row[fieldProductNumberColumn.SourceColumn.Name]);
+            var productNumber = GetValue(fieldProductNumberColumn, row);
             string productLanguageId = _defaultLanguageId;
-            if (fieldProductLanguageIdColumn != null && fieldProductLanguageIdColumn.Active && fieldProductLanguageIdColumn.ScriptType != ScriptType.Constant &&
-                !string.IsNullOrEmpty(Converter.ToString(row[fieldProductLanguageIdColumn.SourceColumn.Name])))
+            if (fieldProductLanguageIdColumn != null && fieldProductLanguageIdColumn.Active && !fieldProductLanguageIdColumn.HasScriptWithValue &&
+                !string.IsNullOrEmpty(GetValue(fieldProductLanguageIdColumn, row)))
             {
-                productLanguageId = GetLanguageID(row[fieldProductLanguageIdColumn.SourceColumn.Name].ToString());
+                productLanguageId = GetLanguageID(GetValue(fieldProductLanguageIdColumn, row));
             }
-            if (!string.IsNullOrEmpty(productLanguageId))
+            if (!string.IsNullOrEmpty(productLanguageId) && !string.IsNullOrEmpty(productNumber))
             {
                 string importedProductsByNumberIdentifier = GetImportedProductsByNumberMultipleProductsIdentifier(productNumber, productLanguageId);
                 ImportedProductsByNumber.TryGetValue(importedProductsByNumberIdentifier, out product);
             }
-            if (product == null)
+            if (product == null && productNumber is not null)
             {
                 ImportedProductsByNumber.TryGetValue(productNumber, out product);
             }
-            if (product == null)
+            if (product == null && productNumber is not null)
             {
                 product = GetExistingProductForFieldValue(row, productNumber, fieldProductVariantIdColumn, fieldProductLanguageIdColumn);
             }
@@ -2465,22 +2489,24 @@ internal class EcomDestinationWriter : BaseSqlWriter
             }
         }
         string fieldLanguageID = (product != null) ? product["ProductLanguageId"].ToString() ?? _defaultLanguageId : _defaultLanguageId;
-        if (fieldProductLanguageIdColumn != null && fieldProductLanguageIdColumn.Active && fieldProductLanguageIdColumn.ScriptType != ScriptType.Constant &&
-            !string.IsNullOrEmpty(Converter.ToString(row[fieldProductLanguageIdColumn.SourceColumn.Name])))
+
+        if (fieldProductLanguageIdColumn != null && fieldProductLanguageIdColumn.Active && !fieldProductLanguageIdColumn.HasScriptWithValue &&
+            !string.IsNullOrEmpty(GetValue(fieldProductLanguageIdColumn, row)))
         {
-            fieldLanguageID = GetLanguageID(row[fieldProductLanguageIdColumn.SourceColumn.Name].ToString());
-            row[fieldProductLanguageIdColumn.SourceColumn.Name] = fieldLanguageID;
+            fieldLanguageID = GetLanguageID(GetValue(fieldProductLanguageIdColumn, row));
+            if (fieldProductLanguageIdColumn.SourceColumn is not null)
+                row[fieldProductLanguageIdColumn.SourceColumn.Name] = fieldLanguageID;
         }
         else
         {
             dataRow["FieldValueProductLanguageId"] = fieldLanguageID;
-            if (fieldProductLanguageIdColumn != null && fieldProductLanguageIdColumn.ScriptType != ScriptType.Constant)
+            if (fieldProductLanguageIdColumn != null && !fieldProductLanguageIdColumn.HasScriptWithValue)
             {
                 row[fieldProductLanguageIdColumn.SourceColumn.Name] = fieldLanguageID;
             }
         }
 
-        if (fieldProductVariantIdColumn == null || string.IsNullOrEmpty(Converter.ToString(row[fieldProductVariantIdColumn.SourceColumn.Name])))
+        if (fieldProductVariantIdColumn == null || string.IsNullOrEmpty(GetValue(fieldProductVariantIdColumn, row)))
         {
             dataRow["FieldValueProductVariantId"] = product != null ? product["ProductVariantID"].ToString() : "";
             row["FieldValueProductVariantId"] = dataRow["FieldValueProductVariantId"];
@@ -2491,15 +2517,15 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         string selectExpression = "ProductNumber='" + productNumber + "'";
 
-        if (fieldProductVariantIdColumn?.SourceColumn != null)
+        if (fieldProductVariantIdColumn != null)
         {
-            string productVariantId = row[fieldProductVariantIdColumn.SourceColumn.Name].ToString() ?? "";
+            string productVariantId = GetValue(fieldProductVariantIdColumn, row) ?? "";
             selectExpression = selectExpression + " and ProductVariantId='" + productVariantId + "'";
         }
 
-        if (fieldProductLanguageIdColumn?.SourceColumn != null)
+        if (fieldProductLanguageIdColumn != null)
         {
-            string productLanguageId = row[fieldProductLanguageIdColumn.SourceColumn.Name].ToString() ?? "";
+            string productLanguageId = GetValue(fieldProductLanguageIdColumn, row) ?? "";
             selectExpression = selectExpression + " and ProductLanguageId='" + productLanguageId + "'";
         }
 
@@ -4027,9 +4053,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (ecomProductsPKColumns == null || !ecomProductsPKColumns.Contains("ProductNumber"))
             {
                 //search existing products by ProductNumber
-                if (productNumberColumn != null && !string.IsNullOrEmpty(productNumberColumn.SourceColumn?.Name))
+                if (productNumberColumn != null)
                 {
-                    string? productNumber = row[productNumberColumn.SourceColumn.Name].ToString();
+                    string? productNumber = GetValue(productNumberColumn, row);
                     if (!string.IsNullOrEmpty(productNumber))
                     {
                         var rows = ExistingProducts.Select("ProductNumber='" + productNumber.Replace("'", "''") + "'");
@@ -4043,9 +4069,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (result == null && (ecomProductsPKColumns == null || !ecomProductsPKColumns.Contains("ProductName")))
             {
                 //search existing products by ProductName
-                if (productNameColumn != null && !string.IsNullOrEmpty(productNameColumn.SourceColumn?.Name))
+                if (productNameColumn != null)
                 {
-                    string? productName = row[productNameColumn.SourceColumn.Name].ToString();
+                    string? productName = GetValue(productNameColumn, row);
                     if (!string.IsNullOrEmpty(productName))
                     {
                         var rows = ExistingProducts.Select("ProductName='" + productName.Replace("'", "''") + "'");
@@ -4152,9 +4178,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private StockLocation? GetExistingStockLocation(Dictionary<string, object> row, ColumnMapping stockLocationIdColumn)
     {
         StockLocation? result = null;
-        if (stockLocationIdColumn != null && !string.IsNullOrEmpty(stockLocationIdColumn.SourceColumn.Name))
+        if (stockLocationIdColumn != null)
         {
-            var stockLocationId = row[stockLocationIdColumn.SourceColumn.Name]?.ToString() ?? string.Empty;
+            var stockLocationId = GetValue(stockLocationIdColumn, row);
             if (!string.IsNullOrEmpty(stockLocationId))
             {
                 if (long.TryParse(stockLocationId, out var stockLocationIdAsLong))
@@ -4182,9 +4208,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private DataRow? GetExistingManufacturer(Dictionary<string, object> row, ColumnMapping? manufacturerNameColumn)
     {
         DataRow? result = null;
-        if (manufacturerNameColumn != null && !string.IsNullOrEmpty(manufacturerNameColumn.SourceColumn.Name))
+        if (manufacturerNameColumn != null)
         {
-            string? manufacturerName = row[manufacturerNameColumn.SourceColumn.Name].ToString();
+            string? manufacturerName = GetValue(manufacturerNameColumn, row);
             if (!string.IsNullOrEmpty(manufacturerName))
             {
                 foreach (var manufactorerRow in ProductManufacturers.Values)
