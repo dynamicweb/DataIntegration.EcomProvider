@@ -290,6 +290,10 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                     table.AddColumn(new SqlColumn("DiscountAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                     table.AddColumn(new SqlColumn("DiscountAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                     break;
+                case "EcomPrices":
+                    table.AddColumn(new SqlColumn("PriceAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn("PriceAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    break;
             }
         }
         return result;
