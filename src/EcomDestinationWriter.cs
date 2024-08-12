@@ -47,8 +47,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private List<Dictionary<string, object>> _rowsWithMissingGroups = new List<Dictionary<string, object>>();
     internal const string EcomProductsMissingGroupsErrorMessage = "Failed at importing EcomProducts rows with missing Groups";
 
-    private Dictionary<string, List<Mapping>> Mappings = new Dictionary<string, List<Mapping>>(StringComparer.OrdinalIgnoreCase);
-    private Dictionary<string, Dictionary<string, Column>> DestinationColumns = new Dictionary<string, Dictionary<string, Column>>(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, List<Mapping>> Mappings = new Dictionary<string, List<Mapping>>(StringComparer.OrdinalIgnoreCase);    
     private Dictionary<string, Dictionary<string, Column>> DestinationColumnMappings = new Dictionary<string, Dictionary<string, Column>>(StringComparer.OrdinalIgnoreCase);
     private Dictionary<int, Dictionary<string, ColumnMapping>> SourceColumnMappings = new Dictionary<int, Dictionary<string, ColumnMapping>>();
 
@@ -160,10 +159,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             duplicateRowsHandler = new DuplicateRowsHandler(logger, job.Mappings);
         }
-        if (connection.State != ConnectionState.Open)
-        {
-            connection.Open();
-        }
+        EnsureConnectionIsOpen();
 
         this.partialUpdate = partialUpdate;
         MappingIdEcomProductsPKColumns = GetEcomProductsPKColumns();
@@ -186,8 +182,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             var mappingColumns = mapping.GetColumnMappings();
             ColumnMappingsByMappingId.Add(mapping.GetId(), mappingColumns);
             InitMappingsByTableName(mapping);
-            InitColumnMappings(mapping, mappingColumns);
-            InitDestinationColumns(mapping.DestinationTable.Name, mapping.DestinationTable.Columns);
+            InitColumnMappings(mapping, mappingColumns);            
         }
     }
 
@@ -231,36 +226,23 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
     }
 
-    private void InitDestinationColumns(string tableName, ColumnCollection columns)
-    {
-        Dictionary<string, Column>? destinationColumnDictionary;
-        if (!DestinationColumns.TryGetValue(tableName, out destinationColumnDictionary))
-        {
-            destinationColumnDictionary = new Dictionary<string, Column>(StringComparer.OrdinalIgnoreCase);
-            DestinationColumns.Add(tableName, destinationColumnDictionary);
-        }
-        foreach (var destinationColumn in columns)
-        {
-            if (!destinationColumnDictionary.ContainsKey(destinationColumn.Name))
-            {
-                destinationColumnDictionary.Add(destinationColumn.Name, destinationColumn);
-            }
-        }
-    }
-
     public void CreateTempTable(string? tempTableSchema, string tempTableName, string tempTablePrefix, List<SqlColumn> destinationColumns, ILogger logger)
     {
         SQLTable.CreateTempTable(sqlCommand, tempTableSchema, tempTableName, tempTablePrefix, destinationColumns, logger);
     }
     internal void CreateTempTables()
     {
+        // refresh tables from the db
+        var currentTables = ((EcomProvider)job.Destination).GetDynamicwebSourceSchema().GetTables();
+        // ensure connection is open (as it is closed after GetTables() call
+        EnsureConnectionIsOpen();
         foreach (Table table in job.Destination.GetSchema().GetTables())
         {
+            var currentTable = GetTable(table.Name, currentTables);
             if (DestinationColumnMappings.TryGetValue(table.Name, out Dictionary<string, Column>? columnMappingDictionary))
             {
 
-                List<SqlColumn> destColumns = new List<SqlColumn>();
-                Dictionary<string, Column> destinationTableColumns = DestinationColumns[table.Name];
+                List<SqlColumn> destColumns = new List<SqlColumn>();                
                 foreach (Column column in columnMappingDictionary.Values)
                 {
                     destColumns.Add((SqlColumn)column);
@@ -268,99 +250,64 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 switch (table.Name)
                 {
                     case "EcomVariantGroups":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantGroupID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantGroupLanguageID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["VariantGroupID", "VariantGroupLanguageID"]);
                         break;
                     case "EcomVariantsOptions":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionLanguageID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["VariantOptionID", "VariantOptionLanguageID"]);
                         break;
                     case "EcomProducts":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductVariantID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductID", typeof(string), SqlDbType.NVarChar, 30, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductLanguageID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductDefaultShopId", typeof(string), SqlDbType.NVarChar, 255, false, false, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantProdCounter");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "ProductVariantCounter");
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["ProductVariantID", "ProductID", "ProductLanguageID", "ProductDefaultShopId", "ProductVariantProdCounter", "ProductVariantCounter"]);
                         break;
                     case "EcomProductCategoryFieldValue":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueFieldCategoryId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductId", typeof(string), SqlDbType.NVarChar, 30, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductVariantId", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "FieldValueProductLanguageId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["FieldValueFieldCategoryId", "FieldValueProductId", "FieldValueProductVariantId", "FieldValueProductLanguageId"]);
                         break;
                     case "EcomPrices":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "PriceID");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceCurrency", typeof(string), SqlDbType.NVarChar, 3, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceShopId", typeof(string), SqlDbType.NVarChar, 255, false, false, false); 
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceUserId", typeof(int), SqlDbType.Int, -1, false, false, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "PriceUserGroupId", typeof(int), SqlDbType.Int, -1, false, false, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["PriceId", "PriceCurrency", "PriceShopId", "PriceUserId", "PriceUserGroupId"]);
                         break;
                     case "EcomDiscount":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountAccessUserId", typeof(int), SqlDbType.Int, -1, false, false, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountAccessUserGroupId", typeof(int), SqlDbType.Int, -1, false, false, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DiscountCurrencyCode", typeof(string), SqlDbType.NVarChar, 3, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["DiscountAccessUserId", "DiscountAccessUserGroupId", "DiscountCurrencyCode"]);
                         break;
                     case "EcomGroups":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "GroupLanguageID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "GroupID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["GroupLanguageID", "GroupID"]);
                         break;
                     case "EcomProductsRelated":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductRelID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedGroupID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ProductRelatedProductRelVariantID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["ProductRelatedProductID", "ProductRelatedProductRelID", "ProductRelatedGroupID", "ProductRelatedProductRelVariantID"]);
                         break;
                     case "EcomStockUnit":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockUnitProductID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockUnitVariantID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockUnitID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["StockUnitProductID", "StockUnitVariantID", "StockUnitID"]);
                         break;
                     case "EcomManufacturers":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ManufacturerID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "ManufacturerName", typeof(string), SqlDbType.NVarChar, 252, false, false, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["ManufacturerID", "ManufacturerName"]);
                         break;
                     case "EcomDetails":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DetailID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "DetailLanguageId", typeof(string), SqlDbType.NVarChar, 50, false, false, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["DetailID", "DetailLanguageId"]);
                         break;
                     case "EcomAssortmentPermissions":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentPermissionAccessUserID", typeof(string), SqlDbType.Int, -1, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["AssortmentPermissionAccessUserID"]);
                         break;
                     case "EcomVariantOptionsProductRelation":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionsProductRelationProductID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "VariantOptionsProductRelationVariantID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["VariantOptionsProductRelationProductID", "VariantOptionsProductRelationVariantID"]);
                         break;
                     case "EcomAssortments":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentLanguageID", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["AssortmentLanguageID"]);
                         break;
                     case "EcomAssortmentShopRelations":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "AssortmentShopRelationShopID", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["AssortmentShopRelationShopID"]);
                         break;
                     case "EcomCurrencies":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CurrencyCode", typeof(string), SqlDbType.NVarChar, 3, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CurrencyLanguageId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["CurrencyCode", "CurrencyLanguageId"]);
                         break;
                     case "EcomCountries":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryCode2", typeof(string), SqlDbType.NVarChar, 2, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryCultureInfo", typeof(string), SqlDbType.NVarChar, 15, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "CountryRegionCode", typeof(string), SqlDbType.NVarChar, 3, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "CountryVAT");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "CountryCode3");
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, destinationTableColumns, "CountryCurrencyCode");
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["CountryCode2", "CountryCultureInfo", "CountryRegionCode", "CountryVAT", "CountryCode3", "CountryCurrencyCode"]);
                         break;
                     case "EcomStockLocation":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationName", typeof(string), SqlDbType.NVarChar, 255, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "StockLocationGroupId", typeof(string), SqlDbType.BigInt, -1, false, true, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["StockLocationName", "StockLocationGroupId"]);
                         break;
                     case "EcomUnits":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitExternalId", typeof(string), SqlDbType.NVarChar, 50, false, false, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["UnitId", "UnitExternalId"]);
                         break;
                     case "EcomUnitTranslations":
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitTranslationUnitId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitTranslationLanguageId", typeof(string), SqlDbType.NVarChar, 50, false, true, false);
-                        EnsureDestinationColumn(columnMappingDictionary, destColumns, "UnitTranslationName", typeof(string), SqlDbType.NVarChar, 50, false, false, false);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["UnitTranslationUnitId", "UnitTranslationLanguageId", "UnitTranslationName"]);
                         break;
                 }
                 if (Mappings.TryGetValue(table.Name, out List<Mapping>? tableMappings))
@@ -381,61 +328,42 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     case "EcomProducts":
                         break;
                     case "EcomGroups":
-                        destColumns.Add(new SqlColumn("GroupID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
-                        destColumns.Add(new SqlColumn("GroupLanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false));
-                        destColumns.Add(new SqlColumn("GroupName", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["GroupID", "GroupLanguageID", "GroupName"]);                        
                         CreateTempTable(table.SqlSchema, table.Name, "TempTableForBulkImport", destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomVariantGroups":
-                        destColumns.Add(new SqlColumn("VariantGroupID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
-                        destColumns.Add(new SqlColumn("VariantGroupLanguageID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
-                        destColumns.Add(new SqlColumn("VariantGroupName", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["VariantGroupID", "VariantGroupLanguageID", "VariantGroupName"]);                        
                         CreateTempTable(table.SqlSchema, table.Name, "TempTableForBulkImport", destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomVariantsOptions":
-                        destColumns.Add(new SqlColumn("VariantOptionID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
-                        destColumns.Add(new SqlColumn("VariantOptionLanguageID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
-                        destColumns.Add(new SqlColumn("VariantOptionName", typeof(string), SqlDbType.NVarChar, null, 255, false, false, false));
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["VariantOptionID", "VariantOptionLanguageID", "VariantOptionName"]);                        
                         CreateTempTable(table.SqlSchema, table.Name, "TempTableForBulkImport", destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomManufacturers":
-                        destColumns.Add(new SqlColumn("ManufacturerID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false));
-                        destColumns.Add(new SqlColumn("ManufacturerName", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["ManufacturerID", "ManufacturerName"]);                        
                         CreateTempTable(table.SqlSchema, table.Name, "TempTableForBulkImport", destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomProductsRelated":
-                        destColumns.Add(new SqlColumn("ProductRelatedProductID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false));
-                        destColumns.Add(new SqlColumn("ProductRelatedProductRelID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false));
-                        destColumns.Add(new SqlColumn("ProductRelatedGroupID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
-                        destColumns.Add(new SqlColumn("ProductRelatedProductRelVariantID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["ProductRelatedProductID", "ProductRelatedProductRelID", "ProductRelatedGroupID", "ProductRelatedProductRelVariantID"]);                        
                         CreateTempTable(table.SqlSchema, table.Name, "TempTableForBulkImport", destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomLanguages":
-                        destColumns.Add(new SqlColumn("LanguageID", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false));
-                        destColumns.Add(new SqlColumn("LanguageCode2", typeof(string), SqlDbType.NVarChar, null, 50, false, false, false));
-                        destColumns.Add(new SqlColumn("LanguageName", typeof(string), SqlDbType.NVarChar, null, 255, false, false, false));
-                        destColumns.Add(new SqlColumn("LanguageNativeName", typeof(string), SqlDbType.NVarChar, null, 255, false, false, false));
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["LanguageID", "LanguageCode2", "LanguageName", "LanguageNativeName"]);                        
                         CreateTempTable(table.SqlSchema, table.Name, "TempTableForBulkImport", destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomVariantOptionsProductRelation":
-                        destColumns.Add(new SqlColumn("VariantOptionsProductRelationProductID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
-                        destColumns.Add(new SqlColumn("VariantOptionsProductRelationVariantID", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["VariantOptionsProductRelationProductID", "VariantOptionsProductRelationVariantID"]);                        
                         CreateTempTable(table.SqlSchema, table.Name, "TempTableForBulkImport", destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomProductCategoryFieldValue":
-                        destColumns.Add(new SqlColumn("FieldValueFieldId", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
-                        destColumns.Add(new SqlColumn("FieldValueFieldCategoryId", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false));
-                        destColumns.Add(new SqlColumn("FieldValueProductId", typeof(string), SqlDbType.NVarChar, null, 30, false, true, false));
-                        destColumns.Add(new SqlColumn("FieldValueProductVariantId", typeof(string), SqlDbType.NVarChar, null, 255, false, true, false));
-                        destColumns.Add(new SqlColumn("FieldValueProductLanguageId", typeof(string), SqlDbType.NVarChar, null, 50, false, true, false));
-                        destColumns.Add(new SqlColumn("FieldValueValue", typeof(string), SqlDbType.NVarChar, null, -1, false, true, false));
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["FieldValueFieldId", "FieldValueFieldCategoryId", "FieldValueProductId", "FieldValueProductVariantId", "FieldValueProductLanguageId", "FieldValueValue"]);                                                
                         CreateTempTable(table.SqlSchema, table.Name, "TempTableForBulkImport", destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
@@ -444,74 +372,75 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
 
         //Create product group relation temp table
-        List<SqlColumn> groupProductRelationColumns = new List<SqlColumn>
-        {
-            new SqlColumn("GroupProductRelationGroupId",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-            new SqlColumn("GroupProductRelationProductId",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-            new SqlColumn("GroupProductRelationSorting",typeof(int),SqlDbType.Int,null,-1,false,false,false),
-            new SqlColumn("GroupProductRelationIsPrimary",typeof(bool),SqlDbType.Bit,null,-1,false,false,false)
-        };
+        var relationTable = GetTable("EcomGroupProductRelation", currentTables);        
+        var groupProductRelationColumns = new List<SqlColumn>();        
+        EnsureDestinationColumns(relationTable, null, groupProductRelationColumns, ["GroupProductRelationGroupId", "GroupProductRelationProductId", "GroupProductRelationSorting", "GroupProductRelationIsPrimary"]);
         CreateTempTable(null, "EcomGroupProductRelation", "TempTableForBulkImport", groupProductRelationColumns, logger);
         AddTableToDataset(groupProductRelationColumns, "EcomGroupProductRelation");
 
         //create product variantgroup relation temp table
-        List<SqlColumn> variantGroupProductRelation = new List<SqlColumn>
-        {
-            new SqlColumn("VariantgroupProductRelationProductID",typeof(string),SqlDbType.NVarChar,null,255,false,false,false),
-            new SqlColumn("VariantgroupProductRelationVariantGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,false,false),
-            new SqlColumn("VariantgroupProductRelationID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-            new SqlColumn("VariantGroupProductRelationSorting",typeof(int),SqlDbType.Int,null,-1,false,false,false)
-        };
+        List<SqlColumn> variantGroupProductRelation = new List<SqlColumn>();        
+        relationTable = GetTable("EcomVariantgroupProductRelation", currentTables);
+        EnsureDestinationColumns(relationTable, null, variantGroupProductRelation, ["VariantgroupProductRelationProductID", "VariantgroupProductRelationVariantGroupID", "VariantgroupProductRelationID", "VariantGroupProductRelationSorting"]);
         CreateTempTable(null, "EcomVariantgroupProductRelation", "TempTableForBulkImport", variantGroupProductRelation, logger);
         AddTableToDataset(variantGroupProductRelation, "EcomVariantgroupProductRelation");
 
         //Create ShopGroupRelation temp table
-        List<SqlColumn> shopGroupRelations = new List<SqlColumn>
-        {
-            new SqlColumn("ShopGroupShopID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-            new SqlColumn("ShopGroupGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-            new SqlColumn("ShopGroupRelationsSorting",typeof(int),SqlDbType.Int,null,-1,false,false,false)
-        };
+        List<SqlColumn> shopGroupRelations = new List<SqlColumn>();        
+        relationTable = GetTable("EcomShopGroupRelation", currentTables);
+        EnsureDestinationColumns(relationTable, null, shopGroupRelations, ["ShopGroupShopID", "ShopGroupGroupID", "ShopGroupRelationsSorting"]);
         CreateTempTable(null, "EcomShopGroupRelation", "TempTableForBulkImport", shopGroupRelations, logger);
         AddTableToDataset(shopGroupRelations, "EcomShopGroupRelation");
 
         //Create Shop relation table
-        List<SqlColumn> shops = new List<SqlColumn>
-        {
-            new SqlColumn("ShopID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-            new SqlColumn("ShopName",typeof(string),SqlDbType.NVarChar,null,255,false,true,false)
-        };
+        List<SqlColumn> shops = new List<SqlColumn>();        
+        relationTable = GetTable("EcomShops", currentTables);
+        EnsureDestinationColumns(relationTable, null, shops, ["ShopID", "ShopName"]);
         CreateTempTable(null, "EcomShops", "TempTableForBulkImport", shops, logger);
         AddTableToDataset(shops, "EcomShops");
 
         //Create Product-relatedGroup temp table
-        List<SqlColumn> productsRelatedGroups = new List<SqlColumn>
-        {
-            new SqlColumn("RelatedGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-            new SqlColumn("RelatedGroupName",typeof(string),SqlDbType.NVarChar,null,255,false,false,false),
-            new SqlColumn("RelatedGroupLanguageID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false)
-        };
+        List<SqlColumn> productsRelatedGroups = new List<SqlColumn>();        
+        relationTable = GetTable("EcomProductsRelatedGroups", currentTables);
+        EnsureDestinationColumns(relationTable, null, productsRelatedGroups, ["RelatedGroupID", "RelatedGroupName", "RelatedGroupLanguageID"]);
         CreateTempTable(null, "EcomProductsRelatedGroups", "TempTableForBulkImport", productsRelatedGroups, logger);
         AddTableToDataset(productsRelatedGroups, "EcomProductsRelatedGroups");
 
         //Create EcomGroupRelations temp table
-        List<SqlColumn> groupRelations = new List<SqlColumn>
-        {
-            new SqlColumn("GroupRelationsGroupID",typeof(string),SqlDbType.NVarChar,null,255,false,true,false),
-            new SqlColumn("GroupRelationsParentID",typeof(string),SqlDbType.NVarChar,null,255,false,false,false),
-            new SqlColumn("GroupRelationsSorting",typeof(int),SqlDbType.Int,null,-1,false,false,false)
-        };
+        List<SqlColumn> groupRelations = new List<SqlColumn>();        
+        relationTable = GetTable("EcomGroupRelations", currentTables);
+        EnsureDestinationColumns(relationTable, null, groupRelations, ["GroupRelationsGroupID", "GroupRelationsParentID", "GroupRelationsSorting"]);
         CreateTempTable(null, "EcomGroupRelations", "TempTableForBulkImport", groupRelations, logger);
         AddTableToDataset(groupRelations, "EcomGroupRelations");
     }
 
-    private static void EnsureDestinationColumn(Dictionary<string, Column> columnMappingDictionary, List<SqlColumn> destColumns, string columnName, Type type, SqlDbType dbType, int limit, bool isIdentity, bool isPrimaryKey, bool isNew)
+    private void EnsureConnectionIsOpen()
     {
-        if (!columnMappingDictionary.ContainsKey(columnName))
+        if (connection.State != ConnectionState.Open)
         {
-            destColumns.Add(new SqlColumn(columnName, type, dbType, null, limit, isIdentity, isPrimaryKey, isNew));
+            connection.Open();
         }
     }
+
+    private Table GetTable(string tableName, TableCollection tables)
+    {
+        var currentTable = tables.FirstOrDefault(t => string.Equals(t.Name, tableName, StringComparison.OrdinalIgnoreCase));
+        Ensure.NotNull(currentTable, $"Can not find the table: {tableName} in the database schema");        
+        return currentTable;
+    }
+
+    private static void EnsureDestinationColumns(Table table, Dictionary<string, Column>? columnMappingDictionary, List<SqlColumn> destColumns, string[] columnsToAdd)
+    {
+        var columns = columnMappingDictionary != null ? columnsToAdd.Where(c => !columnMappingDictionary.ContainsKey(c)) : columnsToAdd;
+        foreach (var columnName in columns)
+        {
+            var column = table.Columns.FirstOrDefault(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
+            if (column is not null && column is SqlColumn sqlColumn)
+            {
+                destColumns.Add(sqlColumn);
+            }
+        }
+    }    
 
     private static void EnsureDestinationColumn(Dictionary<string, Column> columnMappingDictionary, List<SqlColumn> destColumns, Dictionary<string, Column> destinationTableColumns, string columnName)
     {
@@ -1165,7 +1094,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     {
                         logger.Error($"The SourceColumn is null for the table mapping {mapping.SourceTable?.Name} to {mapping.DestinationTable?.Name} on DestinationColumn {columnMapping.DestinationColumn?.Name}");
                     }
-                    throw new Exception(GetRowValueNotFoundMessage(row, columnMapping.SourceColumn?.Table?.Name ?? columnMapping.DestinationColumn?.Table?.Name, 
+                    throw new Exception(GetRowValueNotFoundMessage(row, columnMapping.SourceColumn?.Table?.Name ?? columnMapping.DestinationColumn?.Table?.Name,
                         columnMapping.SourceColumn?.Name ?? columnMapping.DestinationColumn?.Name));
                 }
             }
@@ -3523,7 +3452,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             foreach (Mapping mapping in priceMappings)
             {
-                EnsureMapping(mapping, DestinationColumnMappings["EcomPrices"], tableColumnsDictionary["EcomPrices"], 
+                EnsureMapping(mapping, DestinationColumnMappings["EcomPrices"], tableColumnsDictionary["EcomPrices"],
                     new string[] { "PriceID", "PriceUserId", "PriceUserGroupId" });
                 Column currencyColumn = DestinationColumnMappings["EcomPrices"]["PriceCurrency"];
                 if (currencyColumn != null)
