@@ -374,7 +374,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         return result;
     }
 
-    private Schema GetDynamicwebSourceSchema()
+    internal Schema GetDynamicwebSourceSchema()
     {
         Schema result = GetSqlSourceSchema(Connection);
         var tables = result.GetTables();
