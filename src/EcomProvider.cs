@@ -290,6 +290,10 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                     table.AddColumn(new SqlColumn("DiscountAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                     table.AddColumn(new SqlColumn("DiscountAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
                     break;
+                case "EcomPrices":
+                    table.AddColumn(new SqlColumn("PriceAccessUser", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    table.AddColumn(new SqlColumn("PriceAccessUserGroup", typeof(string), SqlDbType.NVarChar, table, -1, false, false, true));
+                    break;
             }
         }
         return result;
@@ -370,7 +374,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         return result;
     }
 
-    private Schema GetDynamicwebSourceSchema()
+    internal Schema GetDynamicwebSourceSchema()
     {
         Schema result = GetSqlSourceSchema(Connection);
         var tables = result.GetTables();
@@ -966,8 +970,10 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                         while (!reader.IsDone())
                         {
                             sourceRow = reader.GetNext();
-                            ProcessInputRow(mapping, sourceRow);
-                            Writer.Write(sourceRow, mapping, discardDuplicates);
+                            if (ProcessInputRow(sourceRow, mapping))
+                            {
+                                Writer.Write(sourceRow, mapping, discardDuplicates);
+                            }
                         }
                         Writer.ReportProgress(mapping);
                     }
@@ -999,7 +1005,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             }
             Writer.CleanRelationsTables(sqlTransaction);
             sqlTransaction.Commit();
-            Writer.RebuildAssortments();
+            Writer.RebuildAssortments();            
             
             MoveRepositoriesIndexToJob(job);
         }
@@ -1033,7 +1039,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             }
 
             if (sqlTransaction != null)
-                sqlTransaction.Rollback();
+                sqlTransaction.Rollback();            
             return false;
         }
         finally
