@@ -256,7 +256,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["VariantOptionID", "VariantOptionLanguageID"]);
                         break;
                     case "EcomProducts":
-                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["ProductVariantID", "ProductID", "ProductLanguageID", "ProductDefaultShopId", "ProductVariantProdCounter", "ProductVariantCounter"]);
+                        EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["ProductVariantID", "ProductID", "ProductLanguageID", "ProductDefaultShopId", "ProductVariantCounter"]);
                         break;
                     case "EcomProductCategoryFieldValue":
                         EnsureDestinationColumns(currentTable, columnMappingDictionary, destColumns, ["FieldValueFieldCategoryId", "FieldValueProductId", "FieldValueProductVariantId", "FieldValueProductLanguageId"]);
@@ -898,8 +898,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (_existingProducts == null)
             {
                 List<string> columnsToSelect = new List<string>() {
-                    "ProductID", "ProductLanguageID", "ProductVariantID","ProductNumber", "ProductName",
-                    "ProductVariantCounter", "ProductVariantProdCounter"
+                    "ProductID", "ProductLanguageID", "ProductVariantID","ProductNumber", "ProductName", "ProductVariantCounter"
                 };
                 IEnumerable<string> ecomProductsPKColumns = MappingIdEcomProductsPKColumns.Values.SelectMany(i => i);
                 if (ecomProductsPKColumns != null)
@@ -1251,8 +1250,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         if (existingProductRow != null)
         {
-            dataRow["ProductVariantCounter"] = existingProductRow["ProductVariantCounter"];
-            dataRow["ProductVariantProdCounter"] = existingProductRow["ProductVariantProdCounter"];
+            dataRow["ProductVariantCounter"] = existingProductRow["ProductVariantCounter"];            
         }
 
         //Find groups, create if missing, add relations   
@@ -3394,7 +3392,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 EnsureMapping(ecomProductsMapping, DestinationColumnMappings["EcomProducts"], tableColumnsDictionary["EcomProducts"],
                     new string[] { "ProductID", "ProductVariantID", "ProductLanguageID" });
                 EnsureMapping(ecomProductsMapping, DestinationColumnMappings["EcomProducts"], tableColumnsDictionary["EcomProducts"],
-                    new string[] { "ProductVariantProdCounter", "ProductVariantCounter" });
+                    new string[] { "ProductVariantCounter" });
 
                 HandleIsKeyColumns(ecomProductsMapping, new string[] { "ProductVariantID", "ProductLanguageID" });
             }
@@ -3659,12 +3657,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             var ecomVariantOptionsProductRelationTables = FindDataTablesStartingWithName("EcomVariantOptionsProductRelation");
             if (DataToWrite.Tables.Contains("EcomVariantgroupProductrelation") && ecomVariantOptionsProductRelationTables.Count() > 0)
-            {
-                bool variantProdCounterColExist = productsDataTable.Columns.Contains("ProductVariantID") &&
-                    productsDataTable.Columns.Contains("ProductVariantProdCounter");
+            {            
                 bool variantCounterColExist = productsDataTable.Columns.Contains("ProductVariantCounter");
 
-                if (!variantProdCounterColExist && !variantCounterColExist)
+                if (!variantCounterColExist)
                 {
                     continue;
                 }
@@ -3676,30 +3672,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     foreach (DataRow row in tableRows.Values.SelectMany(c => c))
                     {
                         string productId = row["ProductID"].ToString() ?? "";
-                        string langId = row["ProductLanguageID"].ToString() ?? "";
-                        //Check if it is already existing product row and it has filled variants counter fileds - skip it
-                        if (variantProdCounterColExist && (row["ProductVariantProdCounter"] == DBNull.Value || row["ProductVariantProdCounter"].ToString() == "0"))
-                        {
-                            if (string.IsNullOrEmpty(row["ProductVariantID"].ToString()))
-                            {
-                                int variantProdCounter = 0;
-                                ProductVariantsCountDictionary.TryGetValue(string.Format("{0}.{1}", productId, langId), out variantProdCounter);
-                                row["ProductVariantProdCounter"] = variantProdCounter > 0 ? variantProdCounter - 1 : 0;
-                            }
-                            else
-                            {
-                                if (productVariantCounterDict.TryGetValue(productId + langId, out int count))
-                                {
-                                    productVariantCounterDict[productId + langId] = count + 1;
-                                    row["ProductVariantProdCounter"] = count + 1;
-                                }
-                                else
-                                {
-                                    productVariantCounterDict.Add(productId + langId, 0);
-                                    row["ProductVariantProdCounter"] = 0;
-                                }
-                            }
-                        }
+                        string langId = row["ProductLanguageID"].ToString() ?? "";                                                
                         //Check if it is already existing product row and it has filled variants counter fileds - skip it
                         if ((row["ProductVariantCounter"] == System.DBNull.Value || row["ProductVariantCounter"].ToString() == "0") && variantCounterColExist)
                         {
@@ -3778,10 +3751,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
                             if (existigProductVariantIdsCombination.ContainsKey(key))
                             {
                                 string? rowProductVariantId = row["ProductVariantID"].ToString();
-                                List<Tuple<string, string, string>>? variantsInfoList = (List<Tuple<string, string, string>>?)existigProductVariantIdsCombination[key];
+                                List<Tuple<string, string>>? variantsInfoList = (List<Tuple<string, string>>?)existigProductVariantIdsCombination[key];
                                 if (variantsInfoList is not null)
                                 {
-                                    foreach (Tuple<string, string, string> variantInfo in variantsInfoList)
+                                    foreach (Tuple<string, string> variantInfo in variantsInfoList)
                                     {
                                         if (string.IsNullOrEmpty(rowProductVariantId) || !string.Equals(rowProductVariantId, variantInfo.Item1))
                                         {
@@ -3793,8 +3766,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                                                     newRow.ItemArray = (object?[])row.ItemArray.Clone();
                                                 }
                                                 newRow["ProductVariantID"] = variantInfo.Item1;
-                                                newRow["ProductVariantCounter"] = variantInfo.Item2;
-                                                newRow["ProductVariantProdCounter"] = variantInfo.Item3;
+                                                newRow["ProductVariantCounter"] = variantInfo.Item2;                                                
                                                 rowsToAdd.Add(newRow);
                                             }
                                         }
@@ -3834,23 +3806,23 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     key = row[searchingDifferentProductsColumn].ToString() ?? "";
                 }
 
-                Tuple<string?, string?, string?> variantInfo = new Tuple<string?, string?, string?>
+                Tuple<string?, string?> variantInfo = new Tuple<string?, string?>
                     (
                         row["ProductVariantID"].ToString(),
-                        row["ProductVariantCounter"].ToString(), row["ProductVariantProdCounter"].ToString()
+                        row["ProductVariantCounter"].ToString()
                     );
                 if (result.ContainsKey(key))
                 {
                     var value = result[key];
                     if (value is not null)
                     {
-                        List<Tuple<string?, string?, string?>> variantIDsList = (List<Tuple<string?, string?, string?>>)value;
+                        List<Tuple<string?, string?>> variantIDsList = (List<Tuple<string?, string?>>)value;
                         variantIDsList?.Add(variantInfo);
                     }
                 }
                 else
                 {
-                    result[key] = new List<Tuple<string?, string?, string?>>() { variantInfo };
+                    result[key] = new List<Tuple<string?, string?>>() { variantInfo };
                 }
             }
         }
