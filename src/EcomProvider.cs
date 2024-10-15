@@ -1,4 +1,5 @@
-﻿using Dynamicweb.Data;
+﻿using Dynamicweb.Core;
+using Dynamicweb.Data;
 using Dynamicweb.DataIntegration.Integration;
 using Dynamicweb.DataIntegration.Integration.Interfaces;
 using Dynamicweb.DataIntegration.ProviderHelpers;
@@ -279,7 +280,11 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         CreateMissingGoups = true;
     }
 
-    public override Schema GetOriginalDestinationSchema()
+	string ISource.GetId() => "Source|EcomProvider";
+
+	string IDestination.GetId() => "Destination|EcomProvider";
+
+	public override Schema GetOriginalDestinationSchema()
     {
         Schema result = GetOriginalSourceSchema();
         foreach (Table table in result.GetTables())
@@ -674,7 +679,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         return "";
     }
 
-    void ISource.SaveAsXml(XmlTextWriter xmlTextWriter)
+	void ISource.SaveAsXml(XmlTextWriter xmlTextWriter)
     {
         xmlTextWriter.WriteElementString("SqlConnectionString", SqlConnectionString);
         xmlTextWriter.WriteElementString("SourceShop", SourceShop);
@@ -686,7 +691,8 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         xmlTextWriter.WriteElementString("RelatedProductsBy", RelatedProductsBy);
         xmlTextWriter.WriteElementString("VariantGroupsForProductsBy", VariantGroupsForProductsBy);
         xmlTextWriter.WriteElementString("SourceLanguage", SourceLanguage);
-        (this as ISource).GetSchema().SaveAsXml(xmlTextWriter);
+        if (!Feature.IsActive<SchemaManagementFeature>())
+            (this as ISource).GetSchema().SaveAsXml(xmlTextWriter);
     }
 
     void IDestination.SaveAsXml(XmlTextWriter xmlTextWriter)
@@ -709,7 +715,8 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         xmlTextWriter.WriteElementString(nameof(UseProductIdFoundByNumber), UseProductIdFoundByNumber.ToString());
         xmlTextWriter.WriteElementString(nameof(IgnoreEmptyCategoryFieldValues), IgnoreEmptyCategoryFieldValues.ToString());
         xmlTextWriter.WriteElementString("SkipFailingRows", SkipFailingRows.ToString(CultureInfo.CurrentCulture));
-        (this as IDestination).GetSchema().SaveAsXml(xmlTextWriter);
+		if (!Feature.IsActive<SchemaManagementFeature>())
+			(this as IDestination).GetSchema().SaveAsXml(xmlTextWriter);
     }
 
     public override void UpdateSourceSettings(ISource source)
