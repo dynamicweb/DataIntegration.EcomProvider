@@ -235,8 +235,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
         // refresh tables from the db
         var currentTables = ((EcomProvider)job.Destination).GetDynamicwebSourceSchema().GetTables();
         // ensure connection is open (as it is closed after GetTables() call
+        var tables = job.Destination.GetSchema().GetTables();
         EnsureConnectionIsOpen();
-        foreach (Table table in job.Destination.GetSchema().GetTables())
+        foreach (Table table in tables)
         {
             var currentTable = GetTable(table.Name, currentTables);
             if (DestinationColumnMappings.TryGetValue(table.Name, out Dictionary<string, Column>? columnMappingDictionary))
