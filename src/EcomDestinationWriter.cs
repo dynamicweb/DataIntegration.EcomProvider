@@ -159,6 +159,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             duplicateRowsHandler = new DuplicateRowsHandler(logger, job.Mappings);
         }
+        EnsureConnectionIsOpen();
 
         this.partialUpdate = partialUpdate;
         MappingIdEcomProductsPKColumns = GetEcomProductsPKColumns();
