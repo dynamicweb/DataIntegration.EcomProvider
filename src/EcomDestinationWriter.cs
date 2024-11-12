@@ -228,6 +228,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     public void CreateTempTable(string? tempTableSchema, string tempTableName, string tempTablePrefix, List<SqlColumn> destinationColumns, ILogger logger)
     {
+        if (sqlCommand.Connection.State != ConnectionState.Open)
+            sqlCommand.Connection.Open();
+
         SQLTable.CreateTempTable(sqlCommand, tempTableSchema, tempTableName, tempTablePrefix, destinationColumns, logger);
     }
     internal void CreateTempTables()
