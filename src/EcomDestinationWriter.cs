@@ -1108,6 +1108,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 break;
             case "EcomVariantGroups":
                 WriteVariantGroups(row, columnMappings, dataRow);
+                duplicateRowsHandler ??= new DuplicateRowsHandler(logger, job.Mappings);
                 break;
             case "EcomVariantsOptions":
                 WriteVariantOptions(row, columnMappings, dataRow);
