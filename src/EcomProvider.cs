@@ -180,21 +180,27 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
     public bool UseStrictPrimaryKeyMatching { get; set; }
 
     [AddInParameter("Remove missing rows after import")]
-    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Removes rows from the destination and relation tables. This option takes precedence")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes rows from each destination table individually, based on whether they are present in the corresponding source table. This setting looks at each table separately and removes rows missing from the source for that specific table")]
     [AddInParameterGroup("Destination")]
     [AddInParameterOrder(40)]
     public bool RemoveMissingAfterImport { get; set; }
 
+    [AddInParameter("Remove missing rows across all tables after import")]
+    [AddInParameterEditor(typeof(YesNoParameterEditor), "Tooltip=Deletes rows from all destination tables and relation tables by considering the entire dataset in the import source. This setting evaluates all tables collectively and removes rows missing across the whole activity.")]
+    [AddInParameterGroup("Destination")]
+    [AddInParameterOrder(41)]
+    public bool RemoveMissingRows { get; set; }
+
     [AddInParameter("Update only existing products")]
     [AddInParameterEditor(typeof(YesNoParameterEditor), "")]
     [AddInParameterGroup("Destination")]
-    [AddInParameterOrder(41)]
+    [AddInParameterOrder(42)]
     public bool UpdateOnlyExistingProducts { get; set; }
 
     [AddInParameter("Create missing groups")]
     [AddInParameterEditor(typeof(YesNoParameterEditor), "")]
     [AddInParameterGroup("Destination")]
-    [AddInParameterOrder(42)]
+    [AddInParameterOrder(43)]
     public bool CreateMissingGoups { get; set; }
 
     [AddInParameter("Delete incoming rows")]
@@ -499,6 +505,12 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                 case "Schema":
                     Schema = new Schema(node);
                     break;
+                case "RemoveMissingRows":
+                    if (node.HasChildNodes)
+                    {
+                        RemoveMissingRows = node.FirstChild?.Value == "True";
+                    }
+                    break;
                 case "RemoveMissingAfterImport":
                     if (node.HasChildNodes)
                     {
@@ -698,6 +710,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
     void IDestination.SaveAsXml(XmlTextWriter xmlTextWriter)
     {
         xmlTextWriter.WriteElementString("RemoveMissingAfterImport", RemoveMissingAfterImport.ToString(CultureInfo.CurrentCulture));
+        xmlTextWriter.WriteElementString("RemoveMissingRows", RemoveMissingRows.ToString(CultureInfo.CurrentCulture)); 
         xmlTextWriter.WriteElementString("RemoveMissingAfterImportDestinationTablesOnly", RemoveMissingAfterImportDestinationTablesOnly.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("DeactivateMissingProducts", DeactivateMissingProducts.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("DeleteProductsAndGroupForSpecificLanguage", DeleteProductsAndGroupForSpecificLanguage.ToString(CultureInfo.CurrentCulture));
@@ -753,6 +766,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         IgnoreEmptyCategoryFieldValues = newProvider.IgnoreEmptyCategoryFieldValues;
         RemoveMissingAfterImport = newProvider.RemoveMissingAfterImport;
         RemoveMissingAfterImportDestinationTablesOnly = newProvider.RemoveMissingAfterImportDestinationTablesOnly;
+        RemoveMissingRows = newProvider.RemoveMissingRows;
     }
 
     public override string Serialize()
@@ -775,6 +789,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         root.Add(CreateParameterNode(GetType(), "User key field", UserKeyField ?? ""));
         root.Add(CreateParameterNode(GetType(), "Remove missing rows after import", RemoveMissingAfterImport.ToString()));
         root.Add(CreateParameterNode(GetType(), "Remove missing rows after import in the destination tables only", RemoveMissingAfterImportDestinationTablesOnly.ToString()));
+        root.Add(CreateParameterNode(GetType(), "Remove missing rows across all tables after import", RemoveMissingRows.ToString()));
         root.Add(CreateParameterNode(GetType(), "Update only existing products", UpdateOnlyExistingProducts.ToString()));
         root.Add(CreateParameterNode(GetType(), "Use strict primary key matching", UseStrictPrimaryKeyMatching.ToString()));
         root.Add(CreateParameterNode(GetType(), "Update only existing records", UpdateOnlyExistingRecords.ToString()));
@@ -1008,7 +1023,32 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             else
             {
                 Writer.MoveDataToMainTables(Shop, sqlTransaction, UpdateOnlyExistingRecords, InsertOnlyNewRecords);
-                Writer.DeleteExcessFromMainTable(Shop, sqlTransaction, DefaultLanguage, DeleteProductsAndGroupForSpecificLanguage, HideDeactivatedProducts);
+                if (RemoveMissingRows)
+                {
+                    var distinctWriters = job.Mappings.DistinctBy(obj => obj.DestinationTable);
+                    if (distinctWriters != null)
+                    {
+                        foreach (var distinctWriter in distinctWriters)
+                        {
+                            if (distinctWriter == null)
+                                continue;
+
+                            var sameWriters = job.Mappings.Where(obj => obj != null && obj.DestinationTable != null && obj.DestinationTable.Name.Equals(distinctWriter.DestinationTable?.Name ?? "", StringComparison.OrdinalIgnoreCase)).ToList();
+                            if (sameWriters.Count == 0)
+                                continue;
+
+                            Dictionary<string, Mapping> mappings = sameWriters.ToDictionary(obj => $"{EcomDestinationWriter.GetTempTableName}{obj.GetId()}", obj => obj);
+                            if (mappings == null || mappings.Count == 0)
+                                continue;
+
+                            TotalRowsAffected += Writer.DeleteExcessFromMainTable(Shop, sqlTransaction, mappings);
+                        }
+                    }
+                }
+                else
+                {
+                    Writer.DeleteExcessFromMainTable(Shop, sqlTransaction, DefaultLanguage, DeleteProductsAndGroupForSpecificLanguage, HideDeactivatedProducts);
+                }
             }
             Writer.CleanRelationsTables(sqlTransaction);
             sqlTransaction.Commit();
