@@ -286,11 +286,11 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         CreateMissingGoups = true;
     }
 
-	string ISource.GetId() => "Source|EcomProvider";
+    string ISource.GetId() => "Source|EcomProvider";
 
-	string IDestination.GetId() => "Destination|EcomProvider";
+    string IDestination.GetId() => "Destination|EcomProvider";
 
-	public override Schema GetOriginalDestinationSchema()
+    public override Schema GetOriginalDestinationSchema()
     {
         Schema result = GetOriginalSourceSchema();
         foreach (Table table in result.GetTables())
@@ -691,7 +691,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         return "";
     }
 
-	void ISource.SaveAsXml(XmlTextWriter xmlTextWriter)
+    void ISource.SaveAsXml(XmlTextWriter xmlTextWriter)
     {
         xmlTextWriter.WriteElementString("SqlConnectionString", SqlConnectionString);
         xmlTextWriter.WriteElementString("SourceShop", SourceShop);
@@ -710,7 +710,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
     void IDestination.SaveAsXml(XmlTextWriter xmlTextWriter)
     {
         xmlTextWriter.WriteElementString("RemoveMissingAfterImport", RemoveMissingAfterImport.ToString(CultureInfo.CurrentCulture));
-        xmlTextWriter.WriteElementString("RemoveMissingRows", RemoveMissingRows.ToString(CultureInfo.CurrentCulture)); 
+        xmlTextWriter.WriteElementString("RemoveMissingRows", RemoveMissingRows.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("RemoveMissingAfterImportDestinationTablesOnly", RemoveMissingAfterImportDestinationTablesOnly.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("DeactivateMissingProducts", DeactivateMissingProducts.ToString(CultureInfo.CurrentCulture));
         xmlTextWriter.WriteElementString("DeleteProductsAndGroupForSpecificLanguage", DeleteProductsAndGroupForSpecificLanguage.ToString(CultureInfo.CurrentCulture));
@@ -728,8 +728,8 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
         xmlTextWriter.WriteElementString(nameof(UseProductIdFoundByNumber), UseProductIdFoundByNumber.ToString());
         xmlTextWriter.WriteElementString(nameof(IgnoreEmptyCategoryFieldValues), IgnoreEmptyCategoryFieldValues.ToString());
         xmlTextWriter.WriteElementString("SkipFailingRows", SkipFailingRows.ToString(CultureInfo.CurrentCulture));
-		if (!Feature.IsActive<SchemaManagementFeature>())
-			(this as IDestination).GetSchema().SaveAsXml(xmlTextWriter);
+        if (!Feature.IsActive<SchemaManagementFeature>())
+            (this as IDestination).GetSchema().SaveAsXml(xmlTextWriter);
     }
 
     public override void UpdateSourceSettings(ISource source)
@@ -1025,25 +1025,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
                 Writer.MoveDataToMainTables(Shop, sqlTransaction, UpdateOnlyExistingRecords, InsertOnlyNewRecords);
                 if (RemoveMissingRows)
                 {
-                    var distinctWriters = job.Mappings.DistinctBy(obj => obj.DestinationTable);
-                    if (distinctWriters != null)
-                    {
-                        foreach (var distinctWriter in distinctWriters)
-                        {
-                            if (distinctWriter == null)
-                                continue;
-
-                            var sameWriters = job.Mappings.Where(obj => obj != null && obj.DestinationTable != null && obj.DestinationTable.Name.Equals(distinctWriter.DestinationTable?.Name ?? "", StringComparison.OrdinalIgnoreCase)).ToList();
-                            if (sameWriters.Count == 0)
-                                continue;
-
-                            Dictionary<string, Mapping> mappings = sameWriters.ToDictionary(obj => $"{EcomDestinationWriter.GetTempTableName}{obj.GetId()}", obj => obj);
-                            if (mappings == null || mappings.Count == 0)
-                                continue;
-
-                            TotalRowsAffected += Writer.DeleteExcessFromMainTable(Shop, sqlTransaction, mappings);
-                        }
-                    }
+                    RemoveMissingRowsAcrossAllTables(job, sqlTransaction);
                 }
                 else
                 {
@@ -1055,7 +1037,7 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             Writer.RebuildAssortments();
 
             TotalRowsAffected += Writer.RowsAffected;
-            
+
             MoveRepositoriesIndexToJob(job);
         }
         catch (Exception ex)
@@ -1103,6 +1085,32 @@ public class EcomProvider : BaseSqlProvider, IParameterOptions, IParameterVisibi
             IsFirstJobRun = false;
         }
         return true;
+    }
+
+    private void RemoveMissingRowsAcrossAllTables(Job job, SqlTransaction? sqlTransaction)
+    {
+        if (sqlTransaction is null)
+            return;
+
+        var distinctWriters = job.Mappings.DistinctBy(obj => obj.DestinationTable);
+        if (distinctWriters is null)
+            return;
+
+        foreach (var distinctWriter in distinctWriters)
+        {
+            if (distinctWriter == null)
+                continue;
+
+            var sameWriters = job.Mappings.Where(obj => obj != null && obj.DestinationTable != null && obj.DestinationTable.Name.Equals(distinctWriter.DestinationTable?.Name ?? "", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (sameWriters.Count == 0)
+                continue;
+
+            Dictionary<string, Mapping> mappings = sameWriters.ToDictionary(obj => $"{EcomDestinationWriter.TempTableName}{obj.GetId()}", obj => obj);
+            if (mappings == null || mappings.Count == 0)
+                continue;
+
+            TotalRowsAffected += Writer?.DeleteExcessFromMainTable(Shop, sqlTransaction, mappings) ?? 0;
+        }
     }
 
     private void MoveRepositoriesIndexToJob(Job job)
