@@ -1134,10 +1134,9 @@ internal class EcomDestinationWriter : BaseSqlWriter
             case "EcomDetails":
                 WriteDetails(row, columnMappings, dataRow);
                 break;
-            case "EcomAssortmentPermissions":
-                if (!WriteAssortments(row, columnMappings, dataRow))
+            case "EcomAssortmentPermissions":                
+                if (!WriteAssortments(row, columnMappings, dataRow, mappingColumns, mapping))
                 {
-                    DataRowsToWrite[GetTableName(mapping.DestinationTable.Name, mapping)].Add(RowAutoId++.ToString(), new List<DataRow>() { dataRow });
                     return;
                 }
                 break;
@@ -1638,7 +1637,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         return productID;
     }
 
-    private bool WriteAssortments(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow)
+    private bool WriteAssortments(Dictionary<string, object> row, Dictionary<string, ColumnMapping> columnMappings, DataRow dataRow, ColumnMappingCollection mappingColumns, Mapping mapping)
     {
         ColumnMapping? assortmentIdColumn = null;
         if (columnMappings.TryGetValue("AssortmentPermissionAssortmentID", out assortmentIdColumn))
@@ -1674,10 +1673,31 @@ internal class EcomDestinationWriter : BaseSqlWriter
                         userIDs.AddRange(ExistingUsers.Select("AccessUserID='" + id.Replace("'", "''") + "'").Select(r => Converter.ToString(r["AccessUserID"])));
                     }
                 }
-                foreach (string userID in userIDs.Distinct())
+                userIDs = userIDs.Distinct().ToList();
+                if (userIDs.Count > 0)
                 {
-                    dataRow["AssortmentPermissionAssortmentID"] = assortmentID;
-                    dataRow["AssortmentPermissionAccessUserID"] = userID;
+                    if (userIDs.Count > 1)
+                    {
+                        if (duplicateRowsHandler is not null && duplicateRowsHandler.IsRowDuplicate(mappingColumns.Where(cm => cm.Active), mapping, dataRow, row))
+                        {
+                            return false;
+                        }
+                        var rows = new List<DataRow>();
+                        foreach (string userID in userIDs)
+                        {
+                            DataRow relation = GetDataTableNewRow("EcomAssortmentPermissions");
+                            relation["AssortmentPermissionAssortmentID"] = assortmentID;
+                            relation["AssortmentPermissionAccessUserID"] = userID;
+                            rows.Add(relation);
+                        }
+                        DataRowsToWrite[dataRow.Table.TableName].Add(RowAutoId++.ToString(), rows);
+                    }
+                    else
+                    {
+                        dataRow["AssortmentPermissionAssortmentID"] = assortmentID;
+                        dataRow["AssortmentPermissionAccessUserID"] = userIDs[0];
+                        return true;
+                    }
                 }
                 return false;
             }
