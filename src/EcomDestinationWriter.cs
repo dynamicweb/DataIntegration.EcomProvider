@@ -2692,7 +2692,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            DataRow? groupRow = FindRow("EcomGroups", group, dataTable.Columns.Contains("GroupName") ? new Func<DataRow, bool>(g => g["GroupName"].ToString() == group) : null);
+            DataRow? groupRow = FindRow("EcomGroups", group, new Func<DataRow, bool>(g => g["GroupName"].ToString() == group));
             if (groupRow != null)
             {
                 AddGroupReferenceRowToProduct(productID, groupRow["GroupID"].ToString() ?? "", sorting, isPrimary);
