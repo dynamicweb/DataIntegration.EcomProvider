@@ -47,7 +47,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private List<Dictionary<string, object>> _rowsWithMissingGroups = new List<Dictionary<string, object>>();
     internal const string EcomProductsMissingGroupsErrorMessage = "Failed at importing EcomProducts rows with missing Groups";
 
-    private Dictionary<string, List<Mapping>> Mappings = new Dictionary<string, List<Mapping>>(StringComparer.OrdinalIgnoreCase);    
+    private Dictionary<string, List<Mapping>> Mappings = new Dictionary<string, List<Mapping>>(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, Dictionary<string, Column>> DestinationColumnMappings = new Dictionary<string, Dictionary<string, Column>>(StringComparer.OrdinalIgnoreCase);
     private Dictionary<int, Dictionary<string, ColumnMapping>> SourceColumnMappings = new Dictionary<int, Dictionary<string, ColumnMapping>>();
 
@@ -183,7 +183,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             var mappingColumns = mapping.GetColumnMappings();
             ColumnMappingsByMappingId.Add(mapping.GetId(), mappingColumns);
             InitMappingsByTableName(mapping);
-            InitColumnMappings(mapping, mappingColumns);            
+            InitColumnMappings(mapping, mappingColumns);
         }
     }
 
@@ -244,7 +244,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             if (DestinationColumnMappings.TryGetValue(table.Name, out Dictionary<string, Column>? columnMappingDictionary))
             {
 
-                List<SqlColumn> destColumns = new List<SqlColumn>();                
+                List<SqlColumn> destColumns = new List<SqlColumn>();
                 foreach (Column column in columnMappingDictionary.Values)
                 {
                     destColumns.Add((SqlColumn)column);
@@ -330,42 +330,42 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     case "EcomProducts":
                         break;
                     case "EcomGroups":
-                        EnsureDestinationColumns(currentTable, null, destColumns, ["GroupID", "GroupLanguageID", "GroupName"]);                        
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["GroupID", "GroupLanguageID", "GroupName"]);
                         CreateTempTable(table.SqlSchema, table.Name, TempTableName, destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomVariantGroups":
-                        EnsureDestinationColumns(currentTable, null, destColumns, ["VariantGroupID", "VariantGroupLanguageID", "VariantGroupName"]);                        
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["VariantGroupID", "VariantGroupLanguageID", "VariantGroupName"]);
                         CreateTempTable(table.SqlSchema, table.Name, TempTableName, destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomVariantsOptions":
-                        EnsureDestinationColumns(currentTable, null, destColumns, ["VariantOptionID", "VariantOptionLanguageID", "VariantOptionName"]);                        
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["VariantOptionID", "VariantOptionLanguageID", "VariantOptionName"]);
                         CreateTempTable(table.SqlSchema, table.Name, TempTableName, destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomManufacturers":
-                        EnsureDestinationColumns(currentTable, null, destColumns, ["ManufacturerID", "ManufacturerName"]);                        
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["ManufacturerID", "ManufacturerName"]);
                         CreateTempTable(table.SqlSchema, table.Name, TempTableName, destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomProductsRelated":
-                        EnsureDestinationColumns(currentTable, null, destColumns, ["ProductRelatedProductID", "ProductRelatedProductRelID", "ProductRelatedGroupID", "ProductRelatedProductRelVariantID"]);                        
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["ProductRelatedProductID", "ProductRelatedProductRelID", "ProductRelatedGroupID", "ProductRelatedProductRelVariantID"]);
                         CreateTempTable(table.SqlSchema, table.Name, TempTableName, destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomLanguages":
-                        EnsureDestinationColumns(currentTable, null, destColumns, ["LanguageID", "LanguageCode2", "LanguageName", "LanguageNativeName"]);                        
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["LanguageID", "LanguageCode2", "LanguageName", "LanguageNativeName"]);
                         CreateTempTable(table.SqlSchema, table.Name, TempTableName, destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomVariantOptionsProductRelation":
-                        EnsureDestinationColumns(currentTable, null, destColumns, ["VariantOptionsProductRelationProductID", "VariantOptionsProductRelationVariantID"]);                        
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["VariantOptionsProductRelationProductID", "VariantOptionsProductRelationVariantID"]);
                         CreateTempTable(table.SqlSchema, table.Name, TempTableName, destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
                     case "EcomProductCategoryFieldValue":
-                        EnsureDestinationColumns(currentTable, null, destColumns, ["FieldValueFieldId", "FieldValueFieldCategoryId", "FieldValueProductId", "FieldValueProductVariantId", "FieldValueProductLanguageId", "FieldValueValue"]);                                                
+                        EnsureDestinationColumns(currentTable, null, destColumns, ["FieldValueFieldId", "FieldValueFieldCategoryId", "FieldValueProductId", "FieldValueProductVariantId", "FieldValueProductLanguageId", "FieldValueValue"]);
                         CreateTempTable(table.SqlSchema, table.Name, TempTableName, destColumns, logger);
                         AddTableToDataset(destColumns, table.Name);
                         break;
@@ -374,42 +374,42 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
 
         //Create product group relation temp table
-        var relationTable = GetTable("EcomGroupProductRelation", currentTables);        
-        var groupProductRelationColumns = new List<SqlColumn>();        
+        var relationTable = GetTable("EcomGroupProductRelation", currentTables);
+        var groupProductRelationColumns = new List<SqlColumn>();
         EnsureDestinationColumns(relationTable, null, groupProductRelationColumns, ["GroupProductRelationGroupId", "GroupProductRelationProductId", "GroupProductRelationSorting", "GroupProductRelationIsPrimary"]);
         CreateTempTable(null, "EcomGroupProductRelation", TempTableName, groupProductRelationColumns, logger);
         AddTableToDataset(groupProductRelationColumns, "EcomGroupProductRelation");
 
         //create product variantgroup relation temp table
-        List<SqlColumn> variantGroupProductRelation = new List<SqlColumn>();        
+        List<SqlColumn> variantGroupProductRelation = new List<SqlColumn>();
         relationTable = GetTable("EcomVariantgroupProductRelation", currentTables);
         EnsureDestinationColumns(relationTable, null, variantGroupProductRelation, ["VariantgroupProductRelationProductID", "VariantgroupProductRelationVariantGroupID", "VariantgroupProductRelationID", "VariantGroupProductRelationSorting"]);
         CreateTempTable(null, "EcomVariantgroupProductRelation", TempTableName, variantGroupProductRelation, logger);
         AddTableToDataset(variantGroupProductRelation, "EcomVariantgroupProductRelation");
 
         //Create ShopGroupRelation temp table
-        List<SqlColumn> shopGroupRelations = new List<SqlColumn>();        
+        List<SqlColumn> shopGroupRelations = new List<SqlColumn>();
         relationTable = GetTable("EcomShopGroupRelation", currentTables);
         EnsureDestinationColumns(relationTable, null, shopGroupRelations, ["ShopGroupShopID", "ShopGroupGroupID", "ShopGroupRelationsSorting"]);
         CreateTempTable(null, "EcomShopGroupRelation", TempTableName, shopGroupRelations, logger);
         AddTableToDataset(shopGroupRelations, "EcomShopGroupRelation");
 
         //Create Shop relation table
-        List<SqlColumn> shops = new List<SqlColumn>();        
+        List<SqlColumn> shops = new List<SqlColumn>();
         relationTable = GetTable("EcomShops", currentTables);
         EnsureDestinationColumns(relationTable, null, shops, ["ShopID", "ShopName"]);
         CreateTempTable(null, "EcomShops", TempTableName, shops, logger);
         AddTableToDataset(shops, "EcomShops");
 
         //Create Product-relatedGroup temp table
-        List<SqlColumn> productsRelatedGroups = new List<SqlColumn>();        
+        List<SqlColumn> productsRelatedGroups = new List<SqlColumn>();
         relationTable = GetTable("EcomProductsRelatedGroups", currentTables);
         EnsureDestinationColumns(relationTable, null, productsRelatedGroups, ["RelatedGroupID", "RelatedGroupName", "RelatedGroupLanguageID"]);
         CreateTempTable(null, "EcomProductsRelatedGroups", TempTableName, productsRelatedGroups, logger);
         AddTableToDataset(productsRelatedGroups, "EcomProductsRelatedGroups");
 
         //Create EcomGroupRelations temp table
-        List<SqlColumn> groupRelations = new List<SqlColumn>();        
+        List<SqlColumn> groupRelations = new List<SqlColumn>();
         relationTable = GetTable("EcomGroupRelations", currentTables);
         EnsureDestinationColumns(relationTable, null, groupRelations, ["GroupRelationsGroupID", "GroupRelationsParentID", "GroupRelationsSorting"]);
         CreateTempTable(null, "EcomGroupRelations", TempTableName, groupRelations, logger);
@@ -427,7 +427,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     private Table GetTable(string tableName, TableCollection tables)
     {
         var currentTable = tables.FirstOrDefault(t => string.Equals(t.Name, tableName, StringComparison.OrdinalIgnoreCase));
-        Ensure.NotNull(currentTable, $"Can not find the table: {tableName} in the database schema");        
+        Ensure.NotNull(currentTable, $"Can not find the table: {tableName} in the database schema");
         return currentTable;
     }
 
@@ -1127,7 +1127,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
             case "EcomDetails":
                 WriteDetails(row, columnMappings, dataRow);
                 break;
-            case "EcomAssortmentPermissions":                
+            case "EcomAssortmentPermissions":
                 if (!WriteAssortments(row, columnMappings, dataRow, mappingColumns, mapping))
                 {
                     return;
@@ -1244,7 +1244,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
         if (existingProductRow != null)
         {
-            dataRow["ProductVariantCounter"] = existingProductRow["ProductVariantCounter"];            
+            dataRow["ProductVariantCounter"] = existingProductRow["ProductVariantCounter"];
         }
 
         //Find groups, create if missing, add relations   
@@ -1548,10 +1548,18 @@ internal class EcomDestinationWriter : BaseSqlWriter
         ColumnMapping? column = null;
         columnMappings.TryGetValue("ProductLanguageID", out column);
         string productLanguageID = _defaultLanguageId;
-        if (column != null && column.Active && !column.HasScriptWithValue && column.SourceColumn != null && !string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
+        if (column != null && column.Active)
         {
-            productLanguageID = GetLanguageID(row[column.SourceColumn.Name].ToString());
-            row[column.SourceColumn.Name] = productLanguageID;
+            if (column.HasScriptWithValue)
+            {
+                productLanguageID = GetLanguageID(column.GetScriptValue());
+                dataRow["ProductLanguageID"] = productLanguageID;
+            }
+            else if (!column.HasScriptWithValue && column.SourceColumn != null && !string.IsNullOrEmpty(Converter.ToString(row[column.SourceColumn.Name])))
+            {
+                productLanguageID = GetLanguageID(row[column.SourceColumn.Name].ToString());
+                row[column.SourceColumn.Name] = productLanguageID;
+            }
         }
         else
         {
@@ -3049,7 +3057,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
     {
         sqlCommand.Transaction = transaction;
         var mapping = mappings.Values.FirstOrDefault();
-        if (mapping is null) 
+        if (mapping is null)
             return 0;
 
         string extraConditions = GetExtraConditions(mapping, shop, null);
@@ -3683,7 +3691,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         {
             var ecomVariantOptionsProductRelationTables = FindDataTablesStartingWithName("EcomVariantOptionsProductRelation");
             if (DataToWrite.Tables.Contains("EcomVariantgroupProductrelation") && ecomVariantOptionsProductRelationTables.Count() > 0)
-            {            
+            {
                 bool variantCounterColExist = productsDataTable.Columns.Contains("ProductVariantCounter");
 
                 if (!variantCounterColExist)
@@ -3698,7 +3706,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     foreach (DataRow row in tableRows.Values.SelectMany(c => c))
                     {
                         string productId = row["ProductID"].ToString() ?? "";
-                        string langId = row["ProductLanguageID"].ToString() ?? "";                                                
+                        string langId = row["ProductLanguageID"].ToString() ?? "";
                         //Check if it is already existing product row and it has filled variants counter fileds - skip it
                         if ((row["ProductVariantCounter"] == System.DBNull.Value || row["ProductVariantCounter"].ToString() == "0") && variantCounterColExist)
                         {
@@ -3792,7 +3800,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                                                     newRow.ItemArray = (object?[])row.ItemArray.Clone();
                                                 }
                                                 newRow["ProductVariantID"] = variantInfo.Item1;
-                                                newRow["ProductVariantCounter"] = variantInfo.Item2;                                                
+                                                newRow["ProductVariantCounter"] = variantInfo.Item2;
                                                 rowsToAdd.Add(newRow);
                                             }
                                         }
