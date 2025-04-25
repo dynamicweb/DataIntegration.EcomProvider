@@ -3421,14 +3421,17 @@ internal class EcomDestinationWriter : BaseSqlWriter
         List<Mapping>? productsMappings = null;
         if (HasData("EcomProducts") && Mappings.TryGetValue("EcomProducts", out productsMappings))
         {
-            foreach (var ecomProductsMapping in productsMappings)
+            if (!updateOnlyExistingProducts)
             {
-                EnsureMapping(ecomProductsMapping, DestinationColumnMappings["EcomProducts"], tableColumnsDictionary["EcomProducts"],
-                    new string[] { "ProductID", "ProductVariantID", "ProductLanguageID" });
-                EnsureMapping(ecomProductsMapping, DestinationColumnMappings["EcomProducts"], tableColumnsDictionary["EcomProducts"],
-                    new string[] { "ProductVariantCounter" });
+                foreach (var ecomProductsMapping in productsMappings)
+                {
+                    EnsureMapping(ecomProductsMapping, DestinationColumnMappings["EcomProducts"], tableColumnsDictionary["EcomProducts"],
+                        new string[] { "ProductID", "ProductVariantID", "ProductLanguageID" });
+                    EnsureMapping(ecomProductsMapping, DestinationColumnMappings["EcomProducts"], tableColumnsDictionary["EcomProducts"],
+                        new string[] { "ProductVariantCounter" });
 
-                HandleIsKeyColumns(ecomProductsMapping, new string[] { "ProductVariantID", "ProductLanguageID" });
+                    HandleIsKeyColumns(ecomProductsMapping, new string[] { "ProductVariantID", "ProductLanguageID" });
+                }
             }
         }
 
