@@ -4425,7 +4425,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
 
     private string? GetValue(ColumnMapping? columnMapping, Dictionary<string, object> row)
     {
-        string? result = null;
+        string? result = null;        
         if (columnMapping != null && (columnMapping.HasScriptWithValue || row.ContainsKey(columnMapping.SourceColumn.Name)))
         {
             switch (columnMapping.ScriptType)
@@ -4434,10 +4434,10 @@ internal class EcomDestinationWriter : BaseSqlWriter
                     result = Converter.ToString(row[columnMapping.SourceColumn.Name]);
                     break;
                 case ScriptType.Append:
-                    result = Converter.ToString(row[columnMapping.SourceColumn.Name]) + columnMapping.ScriptValue;
+                    result = Converter.ToString(row[columnMapping.SourceColumn.Name]) + Converter.ToString(columnMapping.ScriptTypeProvider?.GetValue(""));
                     break;
                 case ScriptType.Prepend:
-                    result = columnMapping.ScriptValue + Converter.ToString(row[columnMapping.SourceColumn.Name]);
+                    result = Converter.ToString(columnMapping.ScriptTypeProvider?.GetValue("")) + Converter.ToString(row[columnMapping.SourceColumn.Name]);
                     break;
                 case ScriptType.Constant:
                     result = columnMapping.GetScriptValue();
