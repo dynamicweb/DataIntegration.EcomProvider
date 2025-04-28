@@ -2052,7 +2052,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
         }
         else
         {
-            bool useShopValueFromConstant = groupShopsColumn.HasScriptWithValue && !string.IsNullOrEmpty(groupShopsColumn.ScriptValue);
+            bool useShopValueFromConstant = groupShopsColumn.ScriptTypeProvider.DisableSource && !string.IsNullOrEmpty(groupShopsColumn.ScriptTypeProvider.GetValue("")?.ToString());
 
             if (!useShopValueFromConstant && string.IsNullOrEmpty(Converter.ToString(row[groupShopsColumn.SourceColumn.Name])))
             {
@@ -2069,7 +2069,7 @@ internal class EcomDestinationWriter : BaseSqlWriter
                 string? shopIdsStr;
                 if (useShopValueFromConstant)
                 {
-                    shopIdsStr = groupShopsColumn.ScriptValue;
+                    shopIdsStr = groupShopsColumn.ScriptTypeProvider.GetValue("")?.ToString();
                 }
                 else
                 {
